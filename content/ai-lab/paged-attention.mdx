@@ -1,0 +1,88 @@
+---
+title: "PagedAttention: Virtual Memory for LLM Serving"
+description: "A deep-dive into PagedAttention — how vLLM uses OS-inspired virtual memory techniques to achieve 2-4x higher throughput in LLM serving."
+date: "2026-03-21"
+tags: ["llm", "inference", "memory-management", "vllm"]
+model: "N/A (systems research)"
+---
+
+# PagedAttention: Virtual Memory for LLM Serving
+
+## The Problem
+
+When serving LLMs, the **KV cache** — the key-value tensors stored during autoregressive generation — dominates GPU memory usage. A single 13B parameter model serving 256 concurrent requests can require 30+ GB just for KV cache.
+
+Traditional serving systems pre-allocate contiguous memory for each request's KV cache based on the maximum possible sequence length. This causes:
+
+1. **Internal fragmentation**: Most sequences are shorter than max length, wasting allocated memory
+2. **External fragmentation**: Variable-length allocations leave unusable gaps
+3. **Over-reservation**: Memory reserved "just in case" can't be used by other requests
+
+In practice, **60-80% of KV cache memory is wasted**.
+
+## The Insight: Virtual Memory
+
+PagedAttention (Kwon et al., 2023) applies a classic OS concept to GPU memory management:
+
+| OS Concept | PagedAttention Equivalent |
+|---|---|
+| Virtual pages | Logical KV blocks |
+| Physical frames | Physical GPU memory blocks |
+| Page table | Block table |
+| Demand paging | On-demand block allocation |
+| Copy-on-write | Shared prefix blocks |
+
+## How It Works
+
+```python
+# Simplified block allocator
+class BlockAllocator:
+    def __init__(self, num_blocks: int, block_size: int):
+        self.block_size = block_size  # tokens per block
+        self.free_blocks: list[int] = list(range(num_blocks))
+
+    def allocate(self) -> int:
+        if not self.free_blocks:
+            raise MemoryError("No free blocks available")
+        return self.free_blocks.pop()
+
+    def free(self, block_id: int):
+        self.free_blocks.append(block_id)
+
+class PagedKVCache:
+    def __init__(self, allocator: BlockAllocator):
+        self.allocator = allocator
+        self.block_tables: dict[int, list[int]] = {}  # seq_id -> [block_ids]
+
+    def append_token(self, seq_id: int):
+        blocks = self.block_tables.setdefault(seq_id, [])
+        # Allocate new block if current one is full
+        if not blocks or self._is_block_full(seq_id):
+            new_block = self.allocator.allocate()
+            blocks.append(new_block)
+```
+
+The attention kernel is modified to follow block table indirection — instead of assuming contiguous memory, it gathers KV vectors from the mapped physical blocks.
+
+## Results
+
+On an NVIDIA A100 (40GB), serving LLaMA-13B:
+
+- **2-4x throughput improvement** over HuggingFace TGI and FasterTransformer
+- **Near-zero memory waste** — only the last partially-filled block per sequence
+- **Enables larger batch sizes** — more concurrent requests fit in GPU memory
+
+## My Implementation
+
+In my [LLM-Infra-From-Scratch](https://github.com/jimszhou/LLM-Infra-From-Scratch) project, I implemented a simplified version focusing on the memory management layer:
+
+1. Block allocator with configurable block sizes
+2. Block table mapping for multiple concurrent sequences
+3. Copy-on-write support for shared prefixes
+4. Preemption via block swapping to CPU memory
+
+The full CUDA kernel for paged attention is complex (handling variable block sizes, different head dimensions, etc.), but the *concept* is beautifully simple: treat GPU memory like an OS treats RAM.
+
+## Key Takeaway
+
+The biggest performance wins in LLM serving come not from faster GPUs or smarter models, but from **better systems engineering**. PagedAttention is a perfect example: a well-known OS concept, applied to a new domain, yielding massive practical improvements.

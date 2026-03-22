@@ -1,0 +1,75 @@
+---
+title: "LLM Infrastructure From Scratch"
+description: "Building core LLM infrastructure components from the ground up — GPU inference batching, distributed search, LLM serving, and training pipelines."
+date: "2026-03-15"
+tags: ["llm", "infrastructure", "gpu", "python", "cuda"]
+github: "https://github.com/jimszhou/LLM-Infra-From-Scratch"
+---
+
+# LLM Infrastructure From Scratch
+
+A hands-on project to deeply understand the infrastructure behind modern LLM systems by implementing key components from scratch.
+
+## Motivation
+
+As a backend/infrastructure engineer pivoting toward AI, I wanted to go beyond using APIs and understand *how* LLM serving systems actually work under the hood. This project is my learning vehicle — implementing core concepts piece by piece.
+
+## Components
+
+### 1. GPU Inference Batching
+
+Implemented continuous batching for transformer inference, similar to what vLLM and TGI use internally:
+
+```python
+class ContinuousBatcher:
+    def __init__(self, model, max_batch_size=32):
+        self.model = model
+        self.max_batch_size = max_batch_size
+        self.request_queue = asyncio.Queue()
+        self.active_requests = {}
+
+    async def add_request(self, prompt: str, max_tokens: int):
+        request = InferenceRequest(prompt, max_tokens)
+        await self.request_queue.put(request)
+        return await request.future
+```
+
+Key insight: naive batching wastes GPU cycles on padding. Continuous batching lets new requests join mid-generation, keeping GPU utilization high.
+
+### 2. PagedAttention (KV Cache Management)
+
+Implemented a simplified version of PagedAttention — the key innovation behind vLLM:
+
+- Virtual memory-style block allocation for KV cache
+- Eliminates memory fragmentation from variable-length sequences
+- Enables memory sharing across parallel sequences (beam search, parallel sampling)
+
+### 3. Distributed Search with FAISS
+
+Built a distributed vector search layer for RAG pipelines:
+
+- Sharded FAISS indices across multiple workers
+- Scatter-gather query pattern with result merging
+- Supports both L2 and inner-product similarity
+
+### 4. Training Pipeline
+
+Simple but complete distributed training setup:
+
+- Data parallelism with PyTorch DDP
+- Gradient accumulation for effective large batch sizes
+- Mixed precision training with loss scaling
+- Checkpoint management and resumption
+
+## What I Learned
+
+1. **Memory is the bottleneck** — LLM serving is fundamentally a memory management problem, not a compute problem
+2. **Batching is everything** — The difference between naive and continuous batching is 3-5x throughput
+3. **Systems thinking transfers** — My experience with distributed backend systems translated directly to understanding distributed ML infrastructure
+
+## Tech Stack
+
+- Python, PyTorch, CUDA (basics)
+- FAISS for vector search
+- asyncio for serving layer
+- Docker for reproducible environments
