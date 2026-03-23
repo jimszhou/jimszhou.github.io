@@ -1,8 +1,10 @@
 import Link from 'next/link'
-import { getAllContent } from '@/lib/content'
+import { getAllContent, getSiteContent } from '@/lib/content'
+
+const site = getSiteContent()
 
 export const metadata = {
-  title: 'AI Lab — Jim Zhou',
+  title: `${site?.pages.aiLab.title ?? 'AI Lab'} — ${site?.hero.name ?? 'Jim Zhou'}`,
 }
 
 export default function AILabPage() {
@@ -10,8 +12,8 @@ export default function AILabPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2">AI Lab</h1>
-      <p className="text-gray-400 mb-8">AI learning, experiments, and deep-dives.</p>
+      <h1 className="text-3xl font-bold mb-2">{site?.pages.aiLab.title}</h1>
+      <p className="text-gray-400 mb-8">{site?.pages.aiLab.subtitle}</p>
 
       <div className="grid sm:grid-cols-2 gap-4">
         {experiments.map((exp) => (

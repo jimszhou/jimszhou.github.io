@@ -1,8 +1,10 @@
 import Link from 'next/link'
-import { getAllContent } from '@/lib/content'
+import { getAllContent, getSiteContent } from '@/lib/content'
+
+const site = getSiteContent()
 
 export const metadata = {
-  title: 'Projects — Jim Zhou',
+  title: `${site?.pages.projects.title ?? 'Projects'} — ${site?.hero.name ?? 'Jim Zhou'}`,
 }
 
 export default function ProjectsPage() {
@@ -10,8 +12,8 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2">Projects</h1>
-      <p className="text-gray-400 mb-8">Hands-on engineering projects and explorations.</p>
+      <h1 className="text-3xl font-bold mb-2">{site?.pages.projects.title}</h1>
+      <p className="text-gray-400 mb-8">{site?.pages.projects.subtitle}</p>
 
       <div className="grid sm:grid-cols-2 gap-4">
         {projects.map((project) => (

@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "siteTitle": "Jim Zhou — Senior SDE | AI Infrastructure",
+    "siteDescription": "Personal portfolio of Jim Zhou, Senior Software Development Engineer focused on AI infrastructure and backend systems."
+  },
+  "hero": {
+    "name": "Jim Zhou",
+    "title": "Senior SDE | AI Infrastructure",
+    "bio": "Senior Software Development Engineer with 5 years of experience building scalable backend systems, full-stack applications, and cloud-native infrastructure with Python. Currently diving deep into AI infrastructure — LLM serving, GPU optimization, and distributed ML systems."
+  },
+  "social": {
+    "github": "https://github.com/jimszhou",
+    "linkedin": "https://linkedin.com/in/jimszhou"
+  },
+  "explore": {
+    "projects": {
+      "title": "Projects",
+      "description": "Hands-on engineering projects — from LLM infrastructure to distributed systems."
+    },
+    "checkin": {
+      "title": "Check-in",
+      "descriptionTemplate": "Daily learning log — {count} check-ins and counting."
+    },
+    "aiLab": {
+      "title": "AI Lab",
+      "description": "AI experiments, deep-dives, and explorations in machine learning."
+    }
+  },
+  "pages": {
+    "projects": {
+      "title": "Projects",
+      "subtitle": "Hands-on engineering projects and explorations."
+    },
+    "aiLab": {
+      "title": "AI Lab",
+      "subtitle": "AI learning, experiments, and deep-dives."
+    },
+    "checkin": {
+      "title": "Check-in",
+      "subtitleTemplate": "Daily learning log — {count} check-ins so far."
+    },
+    "about": {
+      "resumeDownload": "Download Resume (PDF)",
+      "resumeNote": "PDF placeholder — to be uploaded"
+    }
+  },
+  "nav": [
+    { "href": "/", "label": "Home" },
+    { "href": "/about", "label": "About" },
+    { "href": "/projects", "label": "Projects" },
+    { "href": "/checkin", "label": "Check-in" },
+    { "href": "/ai-lab", "label": "AI Lab" }
+  ],
+  "footer": {
+    "copyright": "Jim Zhou. All rights reserved."
+  }
+}

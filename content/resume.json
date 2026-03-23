@@ -1,7 +1,7 @@
 {
   "name": "Jim Zhou",
-  "title": "Principal Software Development Engineer",
-  "summary": "Principal SDE with ~5 years of experience building high-performance backend systems and cloud-native security infrastructure. Deep expertise in Go, Python, and distributed systems. Currently pivoting toward AI infrastructure — studying LLM serving, GPU inference optimization, and building hands-on projects in ML systems. Targeting Senior+ engineering roles at top tech companies, especially in AI-adjacent domains.",
+  "title": "Senior Software Development Engineer",
+  "summary": "Senior SDE with 5 years of experience building scalable backend systems, full-stack web applications, and cloud-native infrastructure. Primary expertise in Python, with strong skills in Go and TypeScript. Currently pivoting toward AI infrastructure — studying LLM serving, GPU inference optimization, and building hands-on projects in ML systems.",
   "contact": {
     "email": "",
     "linkedin": "https://linkedin.com/in/xxx",
@@ -9,30 +9,48 @@
   },
   "experience": [
     {
-      "company": "Mocked",
-      "role": "Principal Software Development Engineer",
-      "start": "2021-01",
+      "company": "Tech Company",
+      "role": "Senior Software Development Engineer",
+      "start": "2023-01",
       "end": null,
       "location": "Sunnyvale, CA",
       "bullets": [
-        "Mentored team of 5 engineers, conducted code reviews, and established engineering best practices"
+        "Led design and development of a high-throughput data pipeline processing 500K+ events/sec using Python and Kafka",
+        "Built and maintained full-stack internal tools with React and FastAPI, improving developer productivity by 40%",
+        "Architected infrastructure-as-code deployment workflows with Terraform and Kubernetes across multi-region clusters",
+        "Mentored team of 4 engineers, conducted code reviews, and established engineering best practices"
       ]
     },
     {
-      "company": "Mocked",
-      "role": "Senior Software Development Engineer",
-      "start": "2019-06",
-      "end": "2020-12",
+      "company": "Tech Company",
+      "role": "Software Development Engineer",
+      "start": "2021-06",
+      "end": "2022-12",
       "location": "Sunnyvale, CA",
       "bullets": [
-        "Built real-time threat detection engine using Go, processing network traffic at wire speed",
-        "Implemented distributed caching layer reducing API latency by 60%"
+        "Developed RESTful APIs and microservices in Python (Django/FastAPI) serving 10M+ daily requests",
+        "Implemented distributed caching layer with Redis reducing API latency by 60%",
+        "Built CI/CD pipelines and automated testing infrastructure, achieving 95% code coverage"
+      ]
+    },
+    {
+      "company": "Startup",
+      "role": "Software Engineer",
+      "start": "2019-08",
+      "end": "2021-05",
+      "location": "San Francisco, CA",
+      "bullets": [
+        "Built full-stack features for a SaaS platform using Python, Flask, and React",
+        "Designed and optimized PostgreSQL schemas and query patterns for high-traffic workloads",
+        "Implemented real-time notification system using WebSockets and message queues"
       ]
     }
   ],
   "skills": {
-    "Languages": ["Go", "Python", "TypeScript", "C/C++", "SQL", "Bash"],
-    "Infrastructure": ["Kubernetes", "Docker", "AWS", "GCP", "Terraform", "CI/CD", "gRPC", "Kafka"],
+    "Languages": ["Python", "Go", "TypeScript", "SQL", "Bash", "C/C++"],
+    "Backend": ["FastAPI", "Django", "Flask", "gRPC", "Kafka", "Celery"],
+    "Frontend": ["React", "Next.js", "Tailwind CSS"],
+    "Infrastructure": ["Kubernetes", "Docker", "AWS", "GCP", "Terraform", "CI/CD"],
     "AI/ML": ["PyTorch", "vLLM", "CUDA basics", "LLM Serving", "RAG", "Transformer Architecture"],
     "Databases": ["PostgreSQL", "Redis", "Elasticsearch", "DynamoDB"],
     "Tools": ["Git", "Linux", "Prometheus", "Grafana", "Datadog"]
