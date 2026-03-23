@@ -1,9 +1,11 @@
 import Link from 'next/link'
-import { getAllContent, getCheckinDates } from '@/lib/content'
+import { getAllContent, getCheckinDates, getSiteContent } from '@/lib/content'
 import { HeatmapCalendar } from '@/components/HeatmapCalendar'
 
+const site = getSiteContent()
+
 export const metadata = {
-  title: 'Check-in — Jim Zhou',
+  title: `${site?.pages.checkin.title ?? 'Check-in'} — ${site?.hero.name ?? 'Jim Zhou'}`,
 }
 
 export default function CheckinPage() {
@@ -13,9 +15,9 @@ export default function CheckinPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Check-in</h1>
+        <h1 className="text-3xl font-bold mb-2">{site?.pages.checkin.title}</h1>
         <p className="text-gray-400 mb-8">
-          Daily learning log — {checkinDates.length} check-ins so far.
+          {site?.pages.checkin.subtitleTemplate.replace('{count}', String(checkinDates.length))}
         </p>
         <HeatmapCalendar checkedInDates={checkinDates} />
       </div>

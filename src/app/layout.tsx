@@ -2,10 +2,13 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
+import { getSiteContent } from '@/lib/content'
+
+const site = getSiteContent()
 
 export const metadata: Metadata = {
-  title: 'Jim Zhou — Principal SDE | AI Infrastructure',
-  description: 'Personal portfolio of Jim Zhou, Principal Software Development Engineer focused on AI infrastructure and backend systems.',
+  title: site?.meta.siteTitle ?? 'Jim Zhou',
+  description: site?.meta.siteDescription ?? '',
 }
 
 export default function RootLayout({

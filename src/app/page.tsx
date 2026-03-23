@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { getAllContent, getCheckinDates } from '@/lib/content'
+import { getAllContent, getCheckinDates, getSiteContent } from '@/lib/content'
 
 export default function Home() {
+  const site = getSiteContent()
   const recentCheckins = getAllContent('checkins').slice(0, 3)
   const checkinCount = getCheckinDates().length
 
@@ -10,19 +11,17 @@ export default function Home() {
       {/* Hero */}
       <section className="pt-8 sm:pt-16">
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">
-          Jim Zhou
+          {site.hero.name}
         </h1>
         <p className="text-xl text-teal-400 mb-6">
-          Principal SDE | AI Infrastructure
+          {site.hero.title}
         </p>
         <p className="text-gray-400 max-w-2xl text-lg leading-relaxed">
-          Principal Software Development Engineer at Fortinet, building high-performance
-          backend systems and cloud-native security infrastructure. Currently diving deep
-          into AI infrastructure — LLM serving, GPU optimization, and distributed ML systems.
+          {site.hero.bio}
         </p>
         <div className="flex gap-4 mt-6">
           <a
-            href="https://github.com/jimszhou"
+            href={site.social.github}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-teal-500 hover:text-teal-400 transition-colors"
@@ -30,7 +29,7 @@ export default function Home() {
             GitHub
           </a>
           <a
-            href="https://linkedin.com/in/jimszhou"
+            href={site.social.linkedin}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-teal-500 hover:text-teal-400 transition-colors"
@@ -49,10 +48,10 @@ export default function Home() {
             className="group p-6 border border-gray-800 rounded-xl hover:border-teal-500/50 transition-colors"
           >
             <h3 className="font-semibold text-lg mb-2 group-hover:text-teal-400 transition-colors">
-              Projects
+              {site.explore.projects.title}
             </h3>
             <p className="text-gray-400 text-sm">
-              Hands-on engineering projects — from LLM infrastructure to distributed systems.
+              {site.explore.projects.description}
             </p>
           </Link>
           <Link
@@ -60,10 +59,10 @@ export default function Home() {
             className="group p-6 border border-gray-800 rounded-xl hover:border-teal-500/50 transition-colors"
           >
             <h3 className="font-semibold text-lg mb-2 group-hover:text-teal-400 transition-colors">
-              Check-in
+              {site.explore.checkin.title}
             </h3>
             <p className="text-gray-400 text-sm">
-              Daily learning log — {checkinCount} check-ins and counting.
+              {site.explore.checkin.descriptionTemplate.replace('{count}', String(checkinCount))}
             </p>
           </Link>
           <Link
@@ -71,10 +70,10 @@ export default function Home() {
             className="group p-6 border border-gray-800 rounded-xl hover:border-teal-500/50 transition-colors"
           >
             <h3 className="font-semibold text-lg mb-2 group-hover:text-teal-400 transition-colors">
-              AI Lab
+              {site.explore.aiLab.title}
             </h3>
             <p className="text-gray-400 text-sm">
-              AI experiments, deep-dives, and explorations in machine learning.
+              {site.explore.aiLab.description}
             </p>
           </Link>
         </div>

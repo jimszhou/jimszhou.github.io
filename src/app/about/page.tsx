@@ -1,7 +1,9 @@
-import { getResume } from '@/lib/content'
+import { getResume, getSiteContent } from '@/lib/content'
+
+const site = getSiteContent()
 
 export const metadata = {
-  title: 'About — Jim Zhou',
+  title: `About — ${site?.hero.name ?? 'Jim Zhou'}`,
 }
 
 export default function AboutPage() {
@@ -87,9 +89,9 @@ export default function AboutPage() {
           href="/resume.pdf"
           className="inline-block px-6 py-2 border border-teal-500 text-teal-400 rounded-lg hover:bg-teal-500/10 transition-colors text-sm"
         >
-          Download Resume (PDF)
+          {site?.pages.about.resumeDownload}
         </a>
-        <p className="text-xs text-gray-600 mt-2">PDF placeholder — to be uploaded</p>
+        <p className="text-xs text-gray-600 mt-2">{site?.pages.about.resumeNote}</p>
       </div>
     </div>
   )

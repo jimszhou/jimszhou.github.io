@@ -2,14 +2,9 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import siteContent from '../../content/site.json'
 
-const navItems = [
-  { href: '/', label: 'Home' },
-  { href: '/about', label: 'About' },
-  { href: '/projects', label: 'Projects' },
-  { href: '/checkin', label: 'Check-in' },
-  { href: '/ai-lab', label: 'AI Lab' },
-]
+const navItems = siteContent.nav
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -18,7 +13,7 @@ export function Header() {
     <header className="border-b border-gray-800 bg-black/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold text-teal-400 hover:text-teal-300 transition-colors">
-          Jim Zhou
+          {siteContent.hero.name}
         </Link>
 
         {/* Desktop nav */}

@@ -67,3 +67,10 @@ export function getResume() {
   const raw = fs.readFileSync(filePath, 'utf8')
   return JSON.parse(raw)
 }
+
+export function getSiteContent() {
+  const filePath = path.join(contentDir, 'site.json')
+  if (!fs.existsSync(filePath)) return null
+  const raw = fs.readFileSync(filePath, 'utf8')
+  return JSON.parse(raw)
+}
