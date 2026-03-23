@@ -24,6 +24,12 @@ export default function RootLayout({
           {children}
         </main>
         <Footer />
+        {/* GoatCounter analytics — replace JIMSZHOU with your actual site code from goatcounter.com */}
+        <script
+          data-goatcounter="https://jimszhou.goatcounter.com/count"
+          async
+          src="//gc.zgo.at/count.js"
+        />
       </body>
     </html>
   )

@@ -27,9 +27,9 @@ export function HeatmapCalendar({ checkedInDates }: HeatmapCalendarProps) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Go back 364 days (365 total including today)
+    // Go back 182 days (~6 months including today)
     const start = new Date(today)
-    start.setDate(start.getDate() - 364)
+    start.setDate(start.getDate() - 182)
 
     // Adjust start to Monday
     const startDay = start.getDay()
