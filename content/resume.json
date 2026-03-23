@@ -1,36 +1,32 @@
 {
   "name": "Jim Zhou",
   "title": "Principal Software Development Engineer",
-  "summary": "Principal SDE at Fortinet with ~5 years of experience building high-performance backend systems and cloud-native security infrastructure. Deep expertise in Go, Python, and distributed systems. Currently pivoting toward AI infrastructure — studying LLM serving, GPU inference optimization, and building hands-on projects in ML systems. Targeting Senior+ engineering roles at top tech companies, especially in AI-adjacent domains.",
+  "summary": "Principal SDE with ~5 years of experience building high-performance backend systems and cloud-native security infrastructure. Deep expertise in Go, Python, and distributed systems. Currently pivoting toward AI infrastructure — studying LLM serving, GPU inference optimization, and building hands-on projects in ML systems. Targeting Senior+ engineering roles at top tech companies, especially in AI-adjacent domains.",
   "contact": {
     "email": "",
-    "linkedin": "https://linkedin.com/in/jimszhou",
+    "linkedin": "https://linkedin.com/in/xxx",
     "github": "https://github.com/jimszhou"
   },
   "experience": [
     {
-      "company": "Fortinet",
+      "company": "Mocked",
       "role": "Principal Software Development Engineer",
       "start": "2021-01",
       "end": null,
       "location": "Sunnyvale, CA",
       "bullets": [
-        "Led architecture and development of core SASE (Secure Access Service Edge) platform components serving millions of endpoints globally",
-        "Designed and built high-throughput data pipeline processing 10B+ security events daily with sub-second latency",
-        "Drove adoption of microservices architecture, migrating monolithic services to Kubernetes-based infrastructure",
         "Mentored team of 5 engineers, conducted code reviews, and established engineering best practices"
       ]
     },
     {
-      "company": "Fortinet",
+      "company": "Mocked",
       "role": "Senior Software Development Engineer",
       "start": "2019-06",
       "end": "2020-12",
       "location": "Sunnyvale, CA",
       "bullets": [
         "Built real-time threat detection engine using Go, processing network traffic at wire speed",
-        "Implemented distributed caching layer reducing API latency by 60%",
-        "Contributed to FortiSASE cloud platform from early-stage development to production launch"
+        "Implemented distributed caching layer reducing API latency by 60%"
       ]
     }
   ],
