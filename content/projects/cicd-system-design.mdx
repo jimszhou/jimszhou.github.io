@@ -1,0 +1,1043 @@
+---
+title: "OpenAI System Design: multi-tenant CICD / Github Action"
+description: "A deep-dive into designing a GitHub Actions-like CI/CD system from scratch — control plane, DAG orchestration, runner isolation, and real-time log streaming."
+date: "2026-03-22"
+tags: ["system-design", "cicd", "distributed-systems", "github-actions", "architecture"]
+---
+
+# OpenAI System Design: multi-tenant CICD / Github Action
+
+How would you design a CI/CD system like GitHub Actions from scratch — one that handles millions of workflow runs per day across hundreds of thousands of tenants, with near real-time log streaming and secure isolation between workloads?
+
+This article walks through the complete system design, from webhook ingestion to runner execution. We cover the control plane (orchestration, scheduling, state management), the data plane (isolated execution environments), and everything in between: DAG-based task orchestration, multi-tenant fairness, lease-based fault tolerance, and real-time log streaming.
+
+**What you will learn:**
+- How to split a CI/CD system into a **Control Plane** and a **Data Plane**
+- Why **Kafka** is the right choice for multi-tenant event routing
+- How to model workflow jobs as a **DAG** and orchestrate execution
+- Database schema design with **tenant-based sharding**
+- Pull-based runner communication with **long-polling and leases**
+- **Firecracker micro-VM** isolation for secure, fast job execution
+- Real-time log streaming and artifact management with **pre-signed URLs**
+
+> Based on the video [*System Design - CICD / Github Action*](https://youtu.be/Z68PotL_O98?si=XAZHJNVzQdpzF0bR) by **s09g**, expanded with additional code examples, diagrams, and analysis.
+
+---
+
+## Requirements Analysis
+
+### Functional Requirements
+
+- Users define workflows as **YAML configuration files** (e.g., `.github/workflows/ci.yml`)
+- Workflows are **triggered by events**: push, pull request, schedule, manual dispatch
+- Jobs within a workflow can have **dependencies** forming a DAG (directed acyclic graph)
+- Each job runs in an **isolated environment** (container or VM)
+- The system provides **real-time logs** and status updates
+- Support **artifact upload/download** and cross-job artifact sharing
+- **Multi-tenant**: thousands of organizations, each with hundreds of repositories
+
+### Non-Functional Requirements
+
+- **High scalability**: handle bursty workloads (a monorepo push can trigger hundreds of workflows simultaneously)
+- **Low latency**: job pickup within seconds of the trigger event
+- **Near real-time**: status and log streaming within 1-2 seconds
+- **Reliability**: no lost workflow triggers, at-least-once execution guarantee
+- **Security**: strict tenant isolation — no cross-tenant data leakage
+- **Fairness**: one large tenant cannot starve all others of compute resources
+
+### Scale Estimation
+
+| Metric | Estimate |
+|---|---|
+| Active tenants | 100K organizations |
+| Workflow runs / day | 10M |
+| Peak runs / second | ~500 |
+| Average jobs / workflow | 4 |
+| Average job duration | 3 minutes |
+| Concurrent runners at peak | ~10K |
+
+---
+
+## High-Level Architecture
+
+The core architectural decision is to split the system into two independent planes:
+
+- **Control Plane**: receives events, orchestrates workflows, manages state, and distributes tasks
+- **Data Plane**: fetches tasks and executes them in isolated environments
+
+This separation enables independent scaling, provides a security boundary, and allows runners to operate behind NAT/firewalls.
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│                        CONTROL PLANE                             │
+│                                                                  │
+│  ┌───────────┐   ┌──────────┐   ┌──────────────┐  ┌──────────┐ │
+│  │  Webhook  │──▶│ Message  │──▶│    Task      │──▶│ Database │ │
+│  │ Listener  │   │   Bus    │   │ Orchestrator │  │(Postgres)│ │
+│  └───────────┘   │ (Kafka)  │   └──────┬───────┘  └────┬─────┘ │
+│                  └──────────┘          │               │       │
+│                                        ▼               │       │
+│                                 ┌──────┴───────┐ ┌────┴─────┐ │
+│                                 │   Runner     │ │   CDC    │ │
+│                                 │   Gateway    │◀┤  Stream  │ │
+│                                 └──────┬───────┘ └──────────┘ │
+│                                        │                       │
+└────────────────────────────────────────┼───────────────────────┘
+                                         │ Long-Poll (HTTPS)
+                                         ▼
+┌────────────────────────────────────────┼───────────────────────┐
+│                       DATA PLANE       │                       │
+│                                        │                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌──┴──────────┐           │
+│  │   Runner 1  │  │   Runner 2  │  │   Runner 3  │  ...      │
+│  │ (Firecracker│  │ (Firecracker│  │ (Firecracker│           │
+│  │  micro-VM)  │  │  micro-VM)  │  │  micro-VM)  │           │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘           │
+│         │                │                │                   │
+│         └────────┬───────┴───────┬────────┘                   │
+│                  │               │                             │
+│           ┌──────┴──────┐ ┌─────┴──────┐                     │
+│           │ Log/Status  │ │  Artifact  │                     │
+│           │  Streamer   │ │  Storage   │                     │
+│           │(WebSocket)  │ │  (S3/GCS)  │                     │
+│           └─────────────┘ └────────────┘                     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Why this split?** GitHub's own engineering team uses this same pattern. The control plane runs as a managed cloud service. Self-hosted runners — which often sit behind corporate firewalls — initiate all connections outward (pull model). This means the control plane never needs to reach into a private network.
+
+---
+
+## Control Plane Deep Dive
+
+### Event Reception: Webhook Listener
+
+The entry point for the entire system. When a developer pushes code, the SCM (GitHub, GitLab, etc.) sends a webhook to our listener.
+
+**Key responsibilities:**
+- **Signature verification** — validate HMAC-SHA256 signatures to prevent spoofed events
+- **Rate limiting** — per-tenant throttling to prevent abuse
+- **Event publishing** — push validated events into Kafka for downstream processing
+
+```python
+from fastapi import FastAPI, Request, HTTPException
+import hmac
+import hashlib
+import json
+from datetime import datetime
+
+app = FastAPI()
+
+@app.post("/webhooks/{tenant_id}")
+async def receive_webhook(tenant_id: str, request: Request):
+    body = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256", "")
+
+    # 1. Verify webhook signature (HMAC-SHA256)
+    secret = await get_tenant_secret(tenant_id)
+    expected = "sha256=" + hmac.new(
+        secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    # 2. Parse the event
+    event_type = request.headers.get("X-GitHub-Event")
+    payload = await request.json()
+
+    # 3. Publish to Kafka, partitioned by tenant_id
+    await kafka_producer.send(
+        topic="workflow-events",
+        key=tenant_id.encode(),
+        value=json.dumps({
+            "tenant_id": tenant_id,
+            "event_type": event_type,
+            "repo": payload["repository"]["full_name"],
+            "commit_sha": payload.get("after", ""),
+            "payload": payload,
+            "received_at": datetime.utcnow().isoformat(),
+        }).encode(),
+    )
+    return {"status": "accepted"}
+```
+
+**Why not write directly to the database?** Under high load (500+ events/second), directly hitting the database would create hot spots and coupling. Kafka acts as a shock absorber — it buffers spikes and lets downstream consumers process at their own pace.
+
+---
+
+### Message Bus: Kafka for Multi-Tenant Routing
+
+Kafka sits between event ingestion and task orchestration, providing:
+- **Ordering guarantees** per partition (all events for one tenant are processed in order)
+- **Consumer groups** for horizontal scaling of orchestrator workers
+- **Backpressure handling** through consumer lag monitoring
+- **Priority routing** via separate topics for different tenant tiers
+
+```text
+                workflow-events topic
+                (partitioned by tenant_id hash)
+
+  Partition 0: [tenant_a_evt1] [tenant_a_evt2] [tenant_a_evt3]
+  Partition 1: [tenant_b_evt1] [tenant_b_evt2]
+  Partition 2: [tenant_c_evt1] [tenant_c_evt2] [tenant_c_evt3]
+  ...
+  Partition N: [tenant_x_evt1]
+
+              │
+              ▼  Consumer Group: orchestrator-workers
+
+  ┌───────────────────┐  ┌───────────────────┐  ┌───────────────────┐
+  │ Orchestrator      │  │ Orchestrator      │  │ Orchestrator      │
+  │ Worker 1          │  │ Worker 2          │  │ Worker 3          │
+  │ (partitions 0-3)  │  │ (partitions 4-7)  │  │ (partitions 8-N)  │
+  └───────────────────┘  └───────────────────┘  └───────────────────┘
+```
+
+**Partitioning by `tenant_id`** ensures all events for a given tenant are consumed by the same worker, maintaining ordering. If a single tenant generates too much traffic, Kafka's consumer group rebalancing redistributes partitions across workers.
+
+#### Priority-Aware Consumption
+
+For tiered service (free vs. pro vs. enterprise), use separate Kafka topics and prioritize accordingly:
+
+```go
+func consumeEvents(ctx context.Context) {
+    highPriority := kafka.NewConsumer("workflow-events-high")
+    normalPriority := kafka.NewConsumer("workflow-events-normal")
+
+    for {
+        // Always try to drain high-priority first
+        select {
+        case msg := <-highPriority.Messages():
+            processEvent(msg)
+        default:
+            select {
+            case msg := <-highPriority.Messages():
+                processEvent(msg)
+            case msg := <-normalPriority.Messages():
+                processEvent(msg)
+            case <-ctx.Done():
+                return
+            }
+        }
+    }
+}
+```
+
+This ensures enterprise customers get their workflows picked up first, while free-tier users still make progress during quiet periods.
+
+---
+
+### Task Orchestration: DAG Execution Engine
+
+CI/CD workflows are not simple linear pipelines — they are **directed acyclic graphs (DAGs)** with complex dependency relationships. The `needs` keyword in GitHub Actions YAML defines edges in this graph.
+
+#### Example Workflow YAML
+
+```yaml
+name: CI Pipeline
+on: [push]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run build
+
+  test:
+    needs: [lint, build]      # Depends on BOTH lint and build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20]
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm test
+
+  coverage:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run coverage
+
+  deploy:
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - run: ./deploy.sh
+```
+
+#### Resulting DAG
+
+```text
+  ┌─────────┐
+  │  lint    │────┐
+  └─────────┘    │    ┌──────────┐     ┌──────────┐
+                 ├───▶│   test   │────▶│  deploy  │
+  ┌─────────┐    │    │ (matrix: │     │  (prod)  │
+  │  build  │────┘    │  18, 20) │     └──────────┘
+  └─────────┘         └────┬─────┘
+                           │
+                           ▼
+                     ┌──────────┐
+                     │ coverage │
+                     │  report  │
+                     └──────────┘
+
+  Adjacency list:
+    lint     → [test]
+    build    → [test]
+    test     → [deploy, coverage]
+    coverage → []
+    deploy   → []
+```
+
+#### DAG Orchestrator Implementation
+
+The orchestrator tracks in-degree (number of unmet dependencies) for each job. When a job completes, it decrements the in-degree of all dependents. Jobs with in-degree 0 are ready to execute.
+
+```python
+from collections import defaultdict, deque
+from enum import Enum
+from dataclasses import dataclass, field
+
+class JobStatus(Enum):
+    PENDING = "pending"
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+@dataclass
+class Job:
+    id: str
+    name: str
+    status: JobStatus = JobStatus.PENDING
+    dependencies: list[str] = field(default_factory=list)
+
+class DAGOrchestrator:
+    """
+    Manages DAG-based execution of workflow jobs.
+    Tracks dependencies and determines which jobs are ready to run.
+    """
+    def __init__(self, workflow_run_id: str, jobs: list[Job]):
+        self.workflow_run_id = workflow_run_id
+        self.jobs = {job.id: job for job in jobs}
+        self.dependents = defaultdict(list)   # job_id -> [jobs that depend on it]
+        self.in_degree = defaultdict(int)
+
+        for job in jobs:
+            for dep in job.dependencies:
+                self.dependents[dep].append(job.id)
+                self.in_degree[job.id] += 1
+
+    def get_ready_jobs(self) -> list[Job]:
+        """Return jobs whose dependencies are all completed (in_degree == 0)."""
+        ready = []
+        for job_id, job in self.jobs.items():
+            if job.status != JobStatus.PENDING:
+                continue
+            if self.in_degree[job_id] == 0:
+                ready.append(job)
+        return ready
+
+    def complete_job(self, job_id: str, success: bool):
+        """Mark a job done and unblock its dependents."""
+        job = self.jobs[job_id]
+        job.status = JobStatus.COMPLETED if success else JobStatus.FAILED
+
+        if not success:
+            self._cancel_downstream(job_id)
+            return
+
+        # Decrement in-degree for all jobs that depended on this one
+        for dependent_id in self.dependents[job_id]:
+            self.in_degree[dependent_id] -= 1
+
+    def _cancel_downstream(self, job_id: str):
+        """Cascade failure: cancel all transitively dependent jobs."""
+        queue = deque(self.dependents[job_id])
+        while queue:
+            dep_id = queue.popleft()
+            if self.jobs[dep_id].status == JobStatus.PENDING:
+                self.jobs[dep_id].status = JobStatus.FAILED
+                queue.extend(self.dependents[dep_id])
+
+    def is_workflow_complete(self) -> bool:
+        return all(
+            j.status in (JobStatus.COMPLETED, JobStatus.FAILED)
+            for j in self.jobs.values()
+        )
+```
+
+**How it works in practice:** The orchestrator worker receives an event from Kafka, parses the workflow YAML into a DAG, creates `workflow_run` and `job` records in the database, then enters an event loop — each time a job completes (signaled via callback or CDC), it calls `complete_job()` and enqueues any newly ready jobs.
+
+---
+
+### Database Schema Design
+
+Three core tables store the execution state:
+
+```sql
+-- ============================================
+-- Table: workflow_run
+-- One row per triggered workflow execution
+-- Shard key: tenant_id
+-- ============================================
+CREATE TABLE workflow_run (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       VARCHAR(64)  NOT NULL,
+    repo            VARCHAR(256) NOT NULL,
+    commit_sha      VARCHAR(40)  NOT NULL,
+    event_type      VARCHAR(32)  NOT NULL,  -- push, pull_request, schedule
+    workflow_file   VARCHAR(256) NOT NULL,  -- .github/workflows/ci.yml
+    status          VARCHAR(16)  NOT NULL   -- pending | running | completed | failed | cancelled
+                    DEFAULT 'pending',
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    INDEX idx_tenant_status (tenant_id, status),
+    INDEX idx_tenant_repo   (tenant_id, repo)
+);
+
+-- ============================================
+-- Table: job
+-- One row per job within a workflow run
+-- ============================================
+CREATE TABLE job (
+    id              BIGINT PRIMARY KEY,
+    workflow_run_id BIGINT       NOT NULL REFERENCES workflow_run(id),
+    name            VARCHAR(128) NOT NULL,
+    runner_id       VARCHAR(64),            -- NULL until claimed by a runner
+    status          VARCHAR(16)  NOT NULL   -- pending | queued | running | completed | failed
+                    DEFAULT 'pending',
+    started_at      TIMESTAMP,
+    finished_at     TIMESTAMP,
+    lease_token     VARCHAR(64),            -- unique token for lease ownership
+    lease_expires   TIMESTAMP,              -- runner must heartbeat before this
+    attempt         INT NOT NULL DEFAULT 1, -- retry attempt number
+    max_retries     INT NOT NULL DEFAULT 2,
+
+    INDEX idx_workflow_run   (workflow_run_id),
+    INDEX idx_queued_jobs    (status, lease_expires)
+);
+
+-- ============================================
+-- Table: dependency
+-- DAG edges: from_job must complete before to_job can start
+-- ============================================
+CREATE TABLE dependency (
+    from_job_id  BIGINT NOT NULL REFERENCES job(id),
+    to_job_id    BIGINT NOT NULL REFERENCES job(id),
+    PRIMARY KEY (from_job_id, to_job_id)
+);
+```
+
+#### Sharding Strategy
+
+**Shard key: `tenant_id`**
+
+All data for a single tenant lives on the same shard. This is optimal because:
+
+1. **Query locality** — users query their own workflows (`WHERE tenant_id = ?`), which hits a single shard
+2. **No cross-shard joins** — workflow → job → dependency lookups stay within one shard
+3. **Tenant isolation** — a noisy tenant's write load doesn't impact other shards
+
+```text
+  Shard 0                          Shard 1
+  (hash(tenant_id) % N == 0)      (hash(tenant_id) % N == 1)
+  ┌─────────────────────────┐     ┌─────────────────────────┐
+  │ workflow_run, job,      │     │ workflow_run, job,      │
+  │ dependency for          │     │ dependency for          │
+  │ tenants: A, E, I ...   │     │ tenants: B, F, J ...   │
+  └─────────────────────────┘     └─────────────────────────┘
+
+  Shard 2                          Shard 3
+  (hash(tenant_id) % N == 2)      (hash(tenant_id) % N == 3)
+  ┌─────────────────────────┐     ┌─────────────────────────┐
+  │ workflow_run, job,      │     │ workflow_run, job,      │
+  │ dependency for          │     │ dependency for          │
+  │ tenants: C, G, K ...   │     │ tenants: D, H, L ...   │
+  └─────────────────────────┘     └─────────────────────────┘
+```
+
+**Why not NewSQL (Spanner/CockroachDB)?** NewSQL databases support distributed transactions and eliminate the need to think about cross-shard queries. However, they cost significantly more (~10x per GB). For CI/CD, where workflows are inherently tenant-scoped and cross-tenant queries are rare, the simplicity of hash-based sharding on PostgreSQL/MySQL is sufficient.
+
+---
+
+### Task Distribution: CDC + Runner Gateway
+
+Once the orchestrator determines a job is ready to run, it updates the job's status to `queued` in the database. But how do runners learn about new jobs?
+
+#### Change Data Capture (CDC)
+
+Rather than having the orchestrator write to both the database and a message queue (which introduces the **dual-write problem** — what if one write succeeds but the other fails?), we use **CDC** to capture database changes and stream them to Kafka.
+
+```text
+  ┌──────────┐         ┌───────────┐         ┌───────────┐
+  │PostgreSQL│  WAL    │  Change   │  Kafka  │  Runner   │
+  │  (jobs   │────────▶│  Data     │────────▶│  Gateway  │
+  │   table) │  stream │  Capture  │  topic: │  Service  │
+  └──────────┘         │(Debezium) │ job-    └───────────┘
+                       └───────────┘  ready        │
+                                              Long-Poll
+                                                   │
+                                             ┌─────┴─────┐
+                                             │  Runners   │
+                                             └───────────┘
+```
+
+CDC tools like **Debezium** read the PostgreSQL WAL (Write-Ahead Log) and publish change events. We filter for `status` transitions to `queued` and publish those to a `job-ready` topic.
+
+**Key benefit:** The database is the single source of truth. CDC makes the data flow eventually consistent without risking lost events.
+
+#### Runner Gateway: Pull Model with Long-Polling
+
+**Why pull (not push)?** Many organizations run **self-hosted runners** inside private networks behind NAT and firewalls. The control plane cannot push into these environments. Instead, runners initiate outbound HTTPS connections to poll for work.
+
+```go
+// Runner calls: GET /api/v1/jobs/poll?runner_id=xxx&labels=linux,x64
+func (s *GatewayServer) PollForJob(w http.ResponseWriter, r *http.Request) {
+    runnerID := r.URL.Query().Get("runner_id")
+    labels := strings.Split(r.URL.Query().Get("labels"), ",")
+
+    // Long-poll: block for up to 30 seconds waiting for a job
+    ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+    defer cancel()
+
+    for {
+        // Attempt to atomically claim a matching job
+        job, err := s.tryClaimJob(ctx, runnerID, labels)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        if job != nil {
+            json.NewEncoder(w).Encode(job)
+            return
+        }
+
+        // No job available — wait for notification or timeout
+        select {
+        case <-ctx.Done():
+            w.WriteHeader(http.StatusNoContent) // 204: try again later
+            return
+        case <-s.jobNotifier.Wait(labels):
+            continue // New job arrived, retry claim
+        }
+    }
+}
+
+func (s *GatewayServer) tryClaimJob(
+    ctx context.Context, runnerID string, labels []string,
+) (*Job, error) {
+    leaseToken := uuid.NewString()
+    leaseExpiry := time.Now().Add(5 * time.Minute)
+
+    // Atomic claim with FOR UPDATE SKIP LOCKED
+    // This prevents contention when many runners poll simultaneously
+    row := s.db.QueryRowContext(ctx, `
+        UPDATE job
+        SET runner_id     = $1,
+            status        = 'running',
+            lease_token   = $2,
+            lease_expires = $3,
+            started_at    = NOW()
+        WHERE id = (
+            SELECT id FROM job
+            WHERE status = 'queued'
+              AND (lease_expires IS NULL OR lease_expires < NOW())
+            ORDER BY created_at ASC
+            LIMIT 1
+            FOR UPDATE SKIP LOCKED
+        )
+        RETURNING id, workflow_run_id, name
+    `, runnerID, leaseToken, leaseExpiry)
+
+    var job Job
+    err := row.Scan(&job.ID, &job.WorkflowRunID, &job.Name)
+    if err == sql.ErrNoRows {
+        return nil, nil // No jobs available
+    }
+    if err != nil {
+        return nil, err
+    }
+    job.LeaseToken = leaseToken
+    return &job, nil
+}
+```
+
+**Key design decisions:**
+
+1. **`FOR UPDATE SKIP LOCKED`** — PostgreSQL-specific feature that skips rows already locked by another transaction. This prevents runners from blocking each other when claiming jobs.
+
+2. **Lease mechanism** — the runner is given a 5-minute lease. It must send heartbeats to extend the lease. If the runner crashes and stops heartbeating, the lease expires and the job becomes available for re-claim.
+
+3. **Exponential backoff** — runners should back off when no jobs are available (1s → 2s → 4s → ... → 30s max) to reduce load on the gateway during quiet periods.
+
+---
+
+## Data Plane Deep Dive
+
+### Runner Architecture
+
+Each runner is an agent that polls the gateway, provisions an execution environment, runs the job's steps, streams logs, and reports results.
+
+```text
+  ┌───────────────────────────────────────────────────────────┐
+  │                        RUNNER HOST                        │
+  │                                                           │
+  │  ┌───────────┐     ┌──────────────┐     ┌──────────────┐ │
+  │  │  Runner   │────▶│ Environment  │────▶│ Job Executor │ │
+  │  │  Agent    │     │ Provisioner  │     │ (step by     │ │
+  │  │ (polls    │     │ (Docker or   │     │  step)       │ │
+  │  │  gateway) │     │  Firecracker)│     └──────┬───────┘ │
+  │  └─────┬─────┘     └──────────────┘            │         │
+  │        │                                ┌──────┴───────┐ │
+  │        │ heartbeat                      │ Log Streamer │ │
+  │        │ & lease renewal                │ (→ control   │ │
+  │        │                                │    plane)    │ │
+  │        ▼                                └──────────────┘ │
+  │  ┌───────────┐                                           │
+  │  │ Artifact  │                                           │
+  │  │ Uploader  │                                           │
+  │  │(pre-signed│                                           │
+  │  │  URLs)    │                                           │
+  │  └───────────┘                                           │
+  └───────────────────────────────────────────────────────────┘
+```
+
+### Execution Isolation: Container vs. Micro-VM
+
+A critical design decision: how do we isolate untrusted user code? Two main approaches:
+
+| Aspect | Docker Container | Firecracker Micro-VM |
+|---|---|---|
+| Startup time | ~1-2s | **~125ms** |
+| Memory overhead | ~50MB | **~5MB** |
+| Isolation level | Process-level (namespaces, cgroups) | **Hardware-level (KVM)** |
+| Security | Shared kernel — container escapes possible | Separate kernel per VM |
+| Use case | Trusted workloads, self-hosted runners | **Public cloud, untrusted code** |
+| Used by | Jenkins, self-hosted runners | **GitHub Actions, AWS Lambda** |
+
+**For a public CI/CD service, Firecracker is the clear winner.** It provides VM-level isolation with near-container performance. AWS developed Firecracker specifically for Lambda and Fargate — it's battle-tested at massive scale.
+
+#### Firecracker Micro-VM Provisioning
+
+```python
+import asyncio
+import aiohttp
+
+class FirecrackerProvisioner:
+    """Provisions a Firecracker micro-VM for isolated job execution."""
+
+    async def create_vm(self, job: Job) -> MicroVM:
+        # 1. Launch Firecracker process with a Unix socket API
+        socket_path = f"/tmp/firecracker-{job.id}.sock"
+        proc = await asyncio.create_subprocess_exec(
+            "firecracker", "--api-sock", socket_path,
+        )
+
+        api = f"http+unix://{socket_path}"
+
+        # 2. Configure the VM: kernel image, root filesystem, resources
+        await self._put(api, "/boot-source", {
+            "kernel_image_path": "/opt/vmlinux",
+            "boot_args": "console=ttyS0 reboot=k panic=1",
+        })
+        await self._put(api, "/drives/rootfs", {
+            "drive_id": "rootfs",
+            "path_on_host": await self._prepare_rootfs(job),
+            "is_root_device": True,
+            "is_read_only": False,
+        })
+        await self._put(api, "/machine-config", {
+            "vcpu_count": job.resources.cpu,      # e.g., 2
+            "mem_size_mib": job.resources.memory,  # e.g., 7168 (7 GB)
+        })
+
+        # 3. Start the VM — typically ~125ms cold start
+        await self._put(api, "/actions", {"action_type": "InstanceStart"})
+
+        return MicroVM(process=proc, socket=socket_path, job_id=job.id)
+
+    async def destroy_vm(self, vm: MicroVM):
+        """Clean up after job execution."""
+        await self._put(
+            f"http+unix://{vm.socket}",
+            "/actions",
+            {"action_type": "SendCtrlAltDel"},
+        )
+        vm.process.terminate()
+        await vm.process.wait()
+
+    async def _put(self, api: str, path: str, body: dict):
+        async with aiohttp.UnixConnector(path=api.split("://")[1]) as conn:
+            async with aiohttp.ClientSession(connector=conn) as session:
+                async with session.put(f"http://localhost{path}", json=body) as resp:
+                    resp.raise_for_status()
+```
+
+**Why ~125ms startup matters:** In a CI/CD system, users expect their jobs to start within seconds. Traditional VMs take 30-60 seconds to boot. Firecracker's minimal VMM (Virtual Machine Monitor) strips away everything unnecessary — no BIOS, no device emulation beyond virtio — making it nearly as fast as containers.
+
+### Job Execution Lifecycle
+
+The complete sequence from job claim to completion:
+
+```text
+  Runner Agent         Gateway           Database        Object Storage
+      │                   │                  │                 │
+      │── poll for job ──▶│                  │                 │
+      │◀── job details ───│                  │                 │
+      │                   │                  │                 │
+      │── provision VM ───│                  │                 │
+      │   (Firecracker)   │                  │                 │
+      │                   │                  │                 │
+      │── clone repo ─────│                  │                 │
+      │                   │                  │                 │
+      │══ execute steps ══│                  │                 │
+      │  │                │                  │                 │
+      │  │── stream logs ─────────▶ WebSocket/SSE             │
+      │  │                │                  │                 │
+      │  │── heartbeat ──▶│── update lease ─▶│                 │
+      │  │                │                  │                 │
+      │══ steps done ═════│                  │                 │
+      │                   │                  │                 │
+      │── upload artifacts ──────────────────────────────────▶│
+      │   (pre-signed URL)│                  │                 │
+      │                   │                  │                 │
+      │── report status ─▶│── update job ───▶│                 │
+      │                   │   (completed)    │                 │
+      │── destroy VM ─────│                  │                 │
+      │                   │                  │                 │
+```
+
+**Step-by-step:**
+1. Runner polls the gateway and claims a job (receives job metadata + pre-signed URLs)
+2. Runner provisions a Firecracker micro-VM with the appropriate OS image
+3. Inside the VM, the runner clones the repository at the specified commit SHA
+4. Each step in the job runs sequentially; stdout/stderr are streamed in real-time
+5. The runner sends heartbeats every 30 seconds to renew its lease
+6. On completion, artifacts are uploaded directly to object storage via pre-signed URLs
+7. The runner reports final status (success/failure) to the gateway
+8. The VM is destroyed and resources are reclaimed
+
+---
+
+## Logs, Artifacts, and Real-Time Status
+
+### Real-Time Log Streaming
+
+Users expect to see logs appear in real-time as their CI jobs execute. This requires a streaming architecture:
+
+```text
+  Runner              Log Aggregator         User Browser
+    │                      │                       │
+    │── log lines ────────▶│                       │
+    │   (gRPC stream)      │── buffer & store ─┐   │
+    │                      │   (S3, every 5s   │   │
+    │                      │    or 1000 lines) │   │
+    │                      │                   │   │
+    │                      │◀── SSE subscribe ─│───│
+    │                      │──── push lines ──▶│   │
+    │                      │                       │
+```
+
+**Two paths for log data:**
+
+1. **Real-time path (hot):** Runner streams log lines via gRPC to a log aggregator. The aggregator fans out to connected browsers via **Server-Sent Events (SSE)**. SSE is preferred over WebSocket for this use case because it's simpler, supports auto-reconnect natively, and works through HTTP proxies.
+
+2. **Storage path (cold):** The log aggregator periodically flushes buffered lines to object storage (S3/GCS) as compressed chunks. When users view historical logs, the UI fetches these chunks directly from S3.
+
+### Artifact Storage with Pre-Signed URLs
+
+Large files (build artifacts, Docker images, test reports) should **never** flow through the control plane. Instead, the control plane generates **pre-signed URLs** that allow runners to upload directly to object storage.
+
+```python
+import boto3
+from datetime import timedelta
+
+class ArtifactService:
+    def __init__(self):
+        self.s3 = boto3.client("s3")
+        self.bucket = "cicd-artifacts"
+
+    def generate_upload_url(
+        self, tenant_id: str, run_id: str, artifact_name: str
+    ) -> str:
+        """Pre-signed URL for direct runner → S3 upload."""
+        key = f"{tenant_id}/{run_id}/artifacts/{artifact_name}"
+        return self.s3.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": self.bucket,
+                "Key": key,
+                "ContentType": "application/octet-stream",
+            },
+            ExpiresIn=int(timedelta(hours=1).total_seconds()),
+        )
+
+    def generate_download_url(
+        self, tenant_id: str, run_id: str, artifact_name: str
+    ) -> str:
+        """Pre-signed URL for artifact download (by UI or downstream jobs)."""
+        key = f"{tenant_id}/{run_id}/artifacts/{artifact_name}"
+        return self.s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self.bucket, "Key": key},
+            ExpiresIn=int(timedelta(hours=6).total_seconds()),
+        )
+```
+
+### Cross-Job Artifact Passing
+
+Jobs in the same workflow often need to share artifacts. For example, a `build` job produces a binary that a `test` job needs to exercise.
+
+The design is simple: all artifacts for a workflow run share a namespace scoped to `{tenant_id}/{workflow_run_id}/artifacts/`. The DAG orchestrator only unblocks downstream jobs **after confirming** that upstream artifact uploads are complete.
+
+```text
+  build job                              test job
+  (Runner A)                             (Runner B)
+      │                                      │
+      │── build binary ──┐                   │
+      │                  │                   │
+      │── upload to ─────┼──▶ S3: tenant_x/run_123/artifacts/app.tar.gz
+      │   (pre-signed)   │                   │
+      │                  │                   │
+      │── report done ───┼──▶ Orchestrator ──┼──▶ unblock test job
+      │                                      │
+      │                                      │── download from S3
+      │                                      │   (pre-signed URL)
+      │                                      │
+      │                                      │── run tests against binary
+```
+
+---
+
+## Multi-Tenancy and Fairness
+
+A public CI/CD platform must prevent any single tenant from monopolizing shared resources.
+
+### Tenant Isolation at Every Layer
+
+| Layer | Isolation Mechanism |
+|---|---|
+| Event ingestion | Kafka partitions keyed by `tenant_id` |
+| Database | Sharded by `tenant_id` |
+| Job queue | Per-tenant or per-tier Kafka topics |
+| Runner pools | Separate pools for free/pro/enterprise |
+| Execution | Firecracker VMs (hardware isolation) |
+| Artifacts | S3 key prefix by `tenant_id` |
+
+### Rate Limiting with Token Bucket
+
+Each tenant is rate-limited on workflow triggers using a **token bucket** algorithm. Different tiers get different bucket sizes and refill rates.
+
+```python
+import time
+from dataclasses import dataclass
+
+@dataclass
+class TokenBucket:
+    """Classic token bucket rate limiter."""
+    capacity: int          # max burst size
+    refill_rate: float     # tokens per second
+    tokens: float = 0.0
+    last_refill: float = 0.0
+
+    def __post_init__(self):
+        self.tokens = float(self.capacity)
+        self.last_refill = time.monotonic()
+
+    def try_consume(self, n: int = 1) -> bool:
+        now = time.monotonic()
+        elapsed = now - self.last_refill
+        self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+        self.last_refill = now
+
+        if self.tokens >= n:
+            self.tokens -= n
+            return True
+        return False
+
+# Tier-based limits
+TIER_LIMITS = {
+    "free":       {"capacity": 10,  "refill_rate": 1.0},   # 1/sec, burst 10
+    "pro":        {"capacity": 50,  "refill_rate": 5.0},   # 5/sec, burst 50
+    "enterprise": {"capacity": 200, "refill_rate": 20.0},  # 20/sec, burst 200
+}
+
+tenant_limiters: dict[str, TokenBucket] = {}
+
+def check_rate_limit(tenant_id: str, tier: str) -> bool:
+    if tenant_id not in tenant_limiters:
+        limits = TIER_LIMITS.get(tier, TIER_LIMITS["free"])
+        tenant_limiters[tenant_id] = TokenBucket(**limits)
+    return tenant_limiters[tenant_id].try_consume()
+```
+
+### Fair Scheduling
+
+Beyond rate limiting at ingestion, we need **fair scheduling** at the runner level. A **weighted fair queuing** algorithm ensures each tenant gets a proportional share of runner capacity:
+
+- Enterprise tenants get weight 10
+- Pro tenants get weight 3
+- Free tenants get weight 1
+
+When runners poll for jobs, the gateway selects from the tenant with the highest `(weight / running_jobs)` ratio, ensuring fair distribution.
+
+---
+
+## Failure Handling and Reliability
+
+### Lease Expiry and Job Recovery
+
+What happens when a runner crashes mid-job? The **lease mechanism** handles this automatically:
+
+```text
+  Time ──▶
+
+  Runner A claims job    Runner A crashes     Lease expires      Runner B claims
+  (lease: 5 min)         (no heartbeat)       (background sweep) same job
+       │                      │                    │                   │
+       ▼                      ▼                    ▼                   ▼
+  ┌──────────┐          ┌──────────┐          ┌──────────┐       ┌──────────┐
+  │ status:  │          │ status:  │          │ status:  │       │ status:  │
+  │ running  │          │ running  │          │ queued   │       │ running  │
+  │ runner:  │          │ runner:  │          │ runner:  │       │ runner:  │
+  │ Runner A │          │ Runner A │          │ NULL     │       │ Runner B │
+  │ lease:   │          │ lease:   │          │ lease:   │       │ lease:   │
+  │ exp T+5m │          │ exp T+5m │          │ NULL     │       │ exp T+10m│
+  └──────────┘          └──────────┘          └──────────┘       └──────────┘
+```
+
+A **background sweeper** runs every 60 seconds and re-queues jobs whose lease has expired:
+
+```sql
+-- Sweep for expired leases
+UPDATE job
+SET status = 'queued',
+    runner_id = NULL,
+    lease_token = NULL,
+    lease_expires = NULL,
+    attempt = attempt + 1
+WHERE status = 'running'
+  AND lease_expires < NOW()
+  AND attempt < max_retries;
+
+-- Mark permanently failed jobs (exceeded max retries)
+UPDATE job
+SET status = 'failed',
+    finished_at = NOW()
+WHERE status = 'running'
+  AND lease_expires < NOW()
+  AND attempt >= max_retries;
+```
+
+### Idempotency
+
+Since jobs can be retried, every job execution must be **idempotent**. The `lease_token` serves as an idempotency key:
+
+- When a runner reports results, it includes its `lease_token`
+- The gateway only accepts results if the `lease_token` matches the current value in the database
+- This prevents a zombie runner (whose lease expired and was reassigned) from overwriting the new runner's results
+
+### Retry Strategy
+
+Jobs support configurable retry behavior:
+
+- **`max_retries`**: maximum number of attempts (default: 2)
+- **Exponential backoff**: wait `min(2^attempt * base_delay, max_delay)` before re-queuing
+- **Selective retry**: only retry on infrastructure failures (runner crash, timeout), not on user code failures (exit code != 0)
+
+---
+
+## Scaling Considerations
+
+### Horizontal Scaling by Component
+
+| Component | Scaling Strategy | Bottleneck | Scaling Trigger |
+|---|---|---|---|
+| Webhook Listener | Horizontal, stateless | Network I/O | Request rate |
+| Kafka | Add partitions + brokers | Disk I/O | Consumer lag |
+| Orchestrator | One per Kafka partition | CPU (DAG logic) | Event backlog |
+| Runner Gateway | Horizontal, stateless | DB query load | Poll request rate |
+| Database | Shard by `tenant_id` | Write throughput | Storage / write IOPS |
+| Runners | Auto-scale pool | Cost / capacity | Queue depth |
+
+### Auto-Scaling Runners
+
+Runner pools should scale based on **queue depth** (number of `queued` jobs):
+
+```text
+  Queue depth       Runner pool size
+       │                    │
+   200 │ ●                  │       ●  scale up
+       │   ●                │     ●
+   100 │     ●──────●       │   ●──────●  steady
+       │               ●    │              ●  scale down
+     0 │                 ●  │                ●
+       └─────────────────── └──────────────────
+                Time                    Time
+```
+
+**Scale-up policy:** When queue depth > threshold for 2+ minutes, add runners.
+**Scale-down policy:** When queue depth = 0 and runners are idle for 5+ minutes, remove runners. Always maintain a minimum pool for instant job pickup.
+**Cool-down period:** After scaling, wait 3 minutes before evaluating again to avoid oscillation.
+
+---
+
+## How Does Real GitHub Actions Work?
+
+Let's compare our design with what GitHub actually built:
+
+| Aspect | Our Design | Real GitHub Actions |
+|---|---|---|
+| Orchestration | Centralized DAG engine | Distributed, event-driven |
+| Runner communication | Long-poll over HTTPS | Long-poll over HTTPS (confirmed) |
+| Execution isolation | Firecracker micro-VM | Firecracker on Azure VMs |
+| Log storage | S3 + SSE streaming | Azure Blob + live log service |
+| Artifact storage | S3 with pre-signed URLs | Azure Blob with REST API |
+| Workflow definition | YAML (simplified) | YAML with expressions, matrix, contexts |
+| Secret management | Not covered | Azure Key Vault, encrypted at rest |
+| Billing | Not covered | Per-minute billing, metered by runner type |
+
+### What We Simplified
+
+A production GitHub Actions system also needs:
+
+- **Workflow expression engine** — evaluating `${{ github.event.action == 'opened' }}` at runtime requires a sandboxed expression parser
+- **Matrix strategy** — expanding `matrix: { os: [ubuntu, windows], node: [18, 20] }` into N×M jobs
+- **Reusable workflows** — `uses: org/repo/.github/workflows/shared.yml@main` with input/output passing
+- **OIDC token exchange** — `id-token: write` permission for keyless cloud authentication
+- **Concurrency groups** — `concurrency: { group: deploy-prod, cancel-in-progress: true }` for mutual exclusion
+- **Caching layer** — `actions/cache` backed by a content-addressable blob store with LRU eviction
+- **Service containers** — sidecar containers (databases, message queues) that run alongside the job
+- **Composite actions** — reusable step sequences packaged as actions
+
+---
+
+## Key Takeaways
+
+1. **Separate control and data planes** — enables independent scaling and creates a clear security boundary. The control plane manages state; the data plane executes code.
+
+2. **Pull over push** — runners behind NAT/firewalls must initiate connections. Long-polling with exponential backoff provides responsive job pickup without overwhelming the gateway.
+
+3. **Model jobs as a DAG** — `needs` dependencies form a directed acyclic graph. Topological ordering and in-degree tracking determine which jobs can run in parallel.
+
+4. **Lease-based ownership** — runners hold time-limited leases on jobs. No heartbeat = expired lease = automatic re-queuing. This prevents zombie jobs without complex distributed coordination.
+
+5. **CDC for event propagation** — use the database as the single source of truth. CDC (Debezium + WAL) streams changes to Kafka, avoiding the dual-write problem.
+
+6. **Firecracker for isolation** — micro-VMs give VM-level security with near-container startup times (~125ms, ~5MB RAM). Essential for running untrusted code from public repositories.
+
+7. **Pre-signed URLs for large data** — keep the control plane thin. Runners upload logs and artifacts directly to object storage. The control plane only brokers the URL.
+
+8. **Multi-tenant fairness** — rate limiting (token bucket) at ingestion + weighted fair queuing at scheduling prevents resource starvation across tenant tiers.
