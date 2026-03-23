@@ -1,0 +1,284 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+interface VisitorPoint {
+  lat: number
+  lng: number
+  city: string
+  country: string
+  timestamp: number
+}
+
+const STORAGE_KEY = 'visitor_geo_log'
+const SIX_MONTHS_MS = 182 * 24 * 60 * 60 * 1000
+
+// Simple Mercator projection for the SVG map (960x480 viewBox)
+function project(lat: number, lng: number): { x: number; y: number } {
+  const x = ((lng + 180) / 360) * 960
+  const latRad = (lat * Math.PI) / 180
+  const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2))
+  const y = 240 - (mercN * 960) / (2 * Math.PI)
+  return { x, y: Math.max(0, Math.min(480, y)) }
+}
+
+function pruneOldEntries(entries: VisitorPoint[]): VisitorPoint[] {
+  const cutoff = Date.now() - SIX_MONTHS_MS
+  return entries.filter((e) => e.timestamp > cutoff)
+}
+
+export function VisitorMap() {
+  const [visitors, setVisitors] = useState<VisitorPoint[]>([])
+  const [currentVisitor, setCurrentVisitor] = useState<VisitorPoint | null>(null)
+  const [tooltip, setTooltip] = useState<{ point: VisitorPoint; x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    // Load existing entries from localStorage
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsed: VisitorPoint[] = JSON.parse(stored)
+        const pruned = pruneOldEntries(parsed)
+        setVisitors(pruned)
+        // Save pruned version back
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned))
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    // Fetch current visitor's geo location
+    fetch('https://ipapi.co/json/')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.latitude && data.longitude) {
+          const point: VisitorPoint = {
+            lat: data.latitude,
+            lng: data.longitude,
+            city: data.city || 'Unknown',
+            country: data.country_name || 'Unknown',
+            timestamp: Date.now(),
+          }
+          setCurrentVisitor(point)
+
+          // Add to stored visitors (deduplicate by day + city)
+          try {
+            const stored = localStorage.getItem(STORAGE_KEY)
+            const existing: VisitorPoint[] = stored ? JSON.parse(stored) : []
+            const today = new Date().toDateString()
+            const alreadyLogged = existing.some(
+              (e) =>
+                new Date(e.timestamp).toDateString() === today &&
+                e.city === point.city &&
+                e.country === point.country
+            )
+            if (!alreadyLogged) {
+              const updated = pruneOldEntries([...existing, point])
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+              setVisitors(updated)
+            }
+          } catch {
+            // Ignore storage errors
+          }
+        }
+      })
+      .catch(() => {
+        // Geo lookup failed — that's OK
+      })
+  }, [])
+
+  // Aggregate visitors by city for display
+  const aggregated = new Map<string, { point: VisitorPoint; count: number }>()
+  for (const v of visitors) {
+    const key = `${v.city}-${v.country}`
+    const existing = aggregated.get(key)
+    if (existing) {
+      existing.count++
+    } else {
+      aggregated.set(key, { point: v, count: 1 })
+    }
+  }
+
+  return (
+    <div className="border border-gray-800 rounded-xl p-4 sm:p-6 overflow-hidden">
+      {/* SVG World Map */}
+      <div className="relative">
+        <svg
+          viewBox="0 0 960 480"
+          className="w-full h-auto"
+          style={{ background: 'transparent' }}
+        >
+          {/* Simplified world map outline */}
+          <WorldOutline />
+
+          {/* Visitor dots */}
+          {Array.from(aggregated.values()).map(({ point, count }, i) => {
+            const { x, y } = project(point.lat, point.lng)
+            return (
+              <g key={i}>
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={Math.min(3 + count, 8)}
+                  fill="rgba(20, 184, 166, 0.6)"
+                  stroke="rgb(20, 184, 166)"
+                  strokeWidth={1}
+                  className="cursor-pointer"
+                  onMouseEnter={(e) => {
+                    const rect = (e.target as SVGElement).closest('svg')!.getBoundingClientRect()
+                    const svgX = (x / 960) * rect.width + rect.left
+                    const svgY = (y / 480) * rect.height + rect.top
+                    setTooltip({ point, x: svgX, y: svgY })
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+                {/* Pulse animation for current visitor */}
+                {currentVisitor &&
+                  point.city === currentVisitor.city &&
+                  point.country === currentVisitor.country && (
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={Math.min(3 + count, 8)}
+                      fill="none"
+                      stroke="rgb(20, 184, 166)"
+                      strokeWidth={1.5}
+                      opacity={0.6}
+                    >
+                      <animate
+                        attributeName="r"
+                        from={String(Math.min(3 + count, 8))}
+                        to={String(Math.min(3 + count, 8) + 8)}
+                        dur="1.5s"
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="opacity"
+                        from="0.6"
+                        to="0"
+                        dur="1.5s"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  )}
+              </g>
+            )
+          })}
+        </svg>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="fixed z-50 px-3 py-2 bg-gray-800 text-gray-200 text-xs rounded-lg shadow-lg pointer-events-none"
+            style={{ left: tooltip.x, top: tooltip.y - 40 }}
+          >
+            <div className="font-medium">{tooltip.point.city}, {tooltip.point.country}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Stats summary */}
+      <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-400">
+        <div>
+          <span className="text-teal-400 font-semibold">{visitors.length}</span> visits recorded
+        </div>
+        <div>
+          <span className="text-teal-400 font-semibold">{aggregated.size}</span> unique locations
+        </div>
+        <div>
+          <span className="text-teal-400 font-semibold">
+            {new Set(visitors.map((v) => v.country)).size}
+          </span>{' '}
+          countries
+        </div>
+      </div>
+
+      {/* Recent visitors list */}
+      {aggregated.size > 0 && (
+        <div className="mt-4 border-t border-gray-800 pt-4">
+          <h3 className="text-sm font-medium text-gray-300 mb-2">Visitor Locations</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {Array.from(aggregated.entries())
+              .sort((a, b) => b[1].count - a[1].count)
+              .slice(0, 12)
+              .map(([key, { point, count }]) => (
+                <div
+                  key={key}
+                  className="text-xs text-gray-400 flex items-center gap-2"
+                >
+                  <span className="w-2 h-2 rounded-full bg-teal-500 flex-shrink-0" />
+                  <span className="truncate">
+                    {point.city}, {point.country}
+                  </span>
+                  <span className="text-gray-600 ml-auto">{count}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-[11px] text-gray-600 mt-4">
+        Visitor locations are stored locally in your browser. The map shows data from the past 6 months.
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Simplified SVG world map outlines
+ * Using a minimal set of path data for major landmasses
+ */
+function WorldOutline() {
+  return (
+    <g fill="none" stroke="rgb(55, 65, 81)" strokeWidth={0.5}>
+      {/* Grid lines */}
+      {[-60, -30, 0, 30, 60].map((lat) => {
+        const { y } = project(lat, 0)
+        return (
+          <line
+            key={`lat-${lat}`}
+            x1={0}
+            y1={y}
+            x2={960}
+            y2={y}
+            stroke="rgb(31, 41, 55)"
+            strokeWidth={0.3}
+            strokeDasharray="4,4"
+          />
+        )
+      })}
+      {[-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150].map((lng) => {
+        const { x } = project(0, lng)
+        return (
+          <line
+            key={`lng-${lng}`}
+            x1={x}
+            y1={0}
+            x2={x}
+            y2={480}
+            stroke="rgb(31, 41, 55)"
+            strokeWidth={0.3}
+            strokeDasharray="4,4"
+          />
+        )
+      })}
+      {/* Simplified continent outlines */}
+      <g fill="rgb(31, 41, 55)" stroke="rgb(55, 65, 81)" strokeWidth={0.5}>
+        {/* North America */}
+        <path d="M130,85 L155,80 L175,90 L195,85 L215,90 L230,100 L240,115 L245,130 L250,145 L260,155 L265,165 L270,175 L275,180 L270,190 L260,195 L250,200 L240,210 L230,215 L220,220 L210,225 L200,225 L190,220 L185,225 L175,230 L165,230 L155,225 L150,220 L145,210 L140,200 L138,195 L135,190 L130,180 L125,170 L120,160 L115,150 L110,140 L105,130 L108,120 L115,110 L120,100 L125,90 Z" />
+        {/* South America */}
+        <path d="M220,260 L235,255 L250,258 L265,265 L275,275 L280,290 L282,305 L280,320 L275,335 L270,350 L262,365 L255,375 L248,385 L240,390 L232,388 L225,380 L220,370 L218,360 L215,345 L212,330 L210,315 L208,300 L210,285 L212,270 Z" />
+        {/* Europe */}
+        <path d="M440,90 L455,85 L470,88 L480,95 L490,100 L500,105 L510,108 L520,115 L515,125 L510,135 L505,140 L500,145 L495,150 L488,155 L480,160 L470,162 L460,158 L452,155 L445,150 L438,145 L435,140 L433,135 L430,125 L432,115 L435,105 L438,95 Z" />
+        {/* Africa */}
+        <path d="M450,170 L465,168 L480,170 L495,175 L510,180 L520,190 L528,205 L532,220 L535,240 L533,260 L530,280 L525,295 L518,310 L510,320 L500,328 L490,332 L480,330 L470,322 L462,310 L458,295 L455,280 L452,260 L450,240 L448,220 L446,200 L445,185 Z" />
+        {/* Asia */}
+        <path d="M520,80 L545,75 L570,72 L600,70 L630,68 L660,70 L690,75 L720,80 L740,85 L755,90 L770,100 L780,110 L785,120 L790,135 L785,150 L780,160 L770,170 L755,178 L740,182 L725,185 L710,188 L695,190 L680,188 L665,185 L650,180 L638,178 L625,175 L610,170 L600,165 L590,160 L575,155 L560,150 L548,145 L538,140 L530,132 L525,120 L520,110 L518,95 Z" />
+        {/* Australia */}
+        <path d="M720,295 L740,290 L760,292 L778,298 L790,308 L795,320 L792,335 L785,345 L775,352 L760,355 L745,352 L732,345 L722,335 L718,320 L716,308 Z" />
+        {/* Greenland */}
+        <path d="M285,50 L305,45 L320,48 L330,55 L332,65 L328,75 L318,80 L305,82 L292,78 L282,70 L280,60 Z" />
+      </g>
+    </g>
+  )
+}
