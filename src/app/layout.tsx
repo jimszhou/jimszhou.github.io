@@ -1,11 +1,9 @@
 import type { Metadata } from 'next'
-import dynamic from 'next/dynamic'
 import './globals.css'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { getSiteContent } from '@/lib/content'
-
-const VisitorTracker = dynamic(() => import('@/components/VisitorTracker'), { ssr: false })
+import VisitorTracker from '@/components/VisitorTracker'
 
 const site = getSiteContent()
 
