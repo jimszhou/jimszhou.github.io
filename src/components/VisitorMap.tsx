@@ -1,17 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getDb } from '@/lib/firebase'
+import { ref, onValue, runTransaction } from 'firebase/database'
 
-interface VisitorPoint {
+interface AggregatedVisitor {
   lat: number
   lng: number
   city: string
   country: string
-  timestamp: number
+  count: number
+  lastVisit: number
 }
-
-const STORAGE_KEY = 'visitor_geo_log'
-const SIX_MONTHS_MS = 182 * 24 * 60 * 60 * 1000
 
 // Simple Mercator projection for the SVG map (960x480 viewBox)
 function project(lat: number, lng: number): { x: number; y: number } {
@@ -22,82 +22,75 @@ function project(lat: number, lng: number): { x: number; y: number } {
   return { x, y: Math.max(0, Math.min(480, y)) }
 }
 
-function pruneOldEntries(entries: VisitorPoint[]): VisitorPoint[] {
-  const cutoff = Date.now() - SIX_MONTHS_MS
-  return entries.filter((e) => e.timestamp > cutoff)
+// Sanitize string for use as a Firebase RTDB key
+function sanitizeKey(s: string): string {
+  return s.replace(/[.#$\[\]\/]/g, '_')
 }
 
 export function VisitorMap() {
-  const [visitors, setVisitors] = useState<VisitorPoint[]>([])
-  const [currentVisitor, setCurrentVisitor] = useState<VisitorPoint | null>(null)
-  const [tooltip, setTooltip] = useState<{ point: VisitorPoint; x: number; y: number } | null>(null)
+  const [visitors, setVisitors] = useState<AggregatedVisitor[]>([])
+  const [currentVisitor, setCurrentVisitor] = useState<{ city: string; country: string } | null>(null)
+  const [tooltip, setTooltip] = useState<{ visitor: AggregatedVisitor; x: number; y: number } | null>(null)
 
   useEffect(() => {
-    // Load existing entries from localStorage
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed: VisitorPoint[] = JSON.parse(stored)
-        const pruned = pruneOldEntries(parsed)
-        setVisitors(pruned)
-        // Save pruned version back
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned))
+    const db = getDb()
+    if (!db) return
+
+    const visitorsRef = ref(db, 'visitors')
+
+    // Listen for realtime updates from Firebase
+    const unsubscribe = onValue(visitorsRef, (snapshot) => {
+      const data = snapshot.val()
+      if (data) {
+        const entries: AggregatedVisitor[] = Object.values(data)
+        setVisitors(entries)
+      } else {
+        setVisitors([])
       }
-    } catch {
-      // Ignore parse errors
+    })
+
+    // Record current visitor (once per session)
+    const alreadyLogged = sessionStorage.getItem('visitor_logged')
+
+    if (!alreadyLogged) {
+      fetch('https://ipapi.co/json/')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.latitude && data.longitude) {
+            const city = data.city || 'Unknown'
+            const country = data.country_name || 'Unknown'
+            const key = sanitizeKey(`${city}-${country}`)
+            const locationRef = ref(db, `visitors/${key}`)
+
+            setCurrentVisitor({ city, country })
+
+            runTransaction(locationRef, (current) => {
+              if (current) {
+                return { ...current, count: current.count + 1, lastVisit: Date.now() }
+              }
+              return {
+                lat: data.latitude,
+                lng: data.longitude,
+                city,
+                country,
+                count: 1,
+                lastVisit: Date.now(),
+              }
+            })
+
+            sessionStorage.setItem('visitor_logged', 'true')
+          }
+        })
+        .catch(() => {
+          // Geo lookup failed — that's OK
+        })
     }
 
-    // Fetch current visitor's geo location
-    fetch('https://ipapi.co/json/')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.latitude && data.longitude) {
-          const point: VisitorPoint = {
-            lat: data.latitude,
-            lng: data.longitude,
-            city: data.city || 'Unknown',
-            country: data.country_name || 'Unknown',
-            timestamp: Date.now(),
-          }
-          setCurrentVisitor(point)
-
-          // Add to stored visitors (deduplicate by day + city)
-          try {
-            const stored = localStorage.getItem(STORAGE_KEY)
-            const existing: VisitorPoint[] = stored ? JSON.parse(stored) : []
-            const today = new Date().toDateString()
-            const alreadyLogged = existing.some(
-              (e) =>
-                new Date(e.timestamp).toDateString() === today &&
-                e.city === point.city &&
-                e.country === point.country
-            )
-            if (!alreadyLogged) {
-              const updated = pruneOldEntries([...existing, point])
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-              setVisitors(updated)
-            }
-          } catch {
-            // Ignore storage errors
-          }
-        }
-      })
-      .catch(() => {
-        // Geo lookup failed — that's OK
-      })
+    return () => unsubscribe()
   }, [])
 
-  // Aggregate visitors by city for display
-  const aggregated = new Map<string, { point: VisitorPoint; count: number }>()
-  for (const v of visitors) {
-    const key = `${v.city}-${v.country}`
-    const existing = aggregated.get(key)
-    if (existing) {
-      existing.count++
-    } else {
-      aggregated.set(key, { point: v, count: 1 })
-    }
-  }
+  const totalVisits = visitors.reduce((sum, v) => sum + v.count, 0)
+  const uniqueCountries = new Set(visitors.map((v) => v.country)).size
 
   return (
     <div className="border border-gray-800 rounded-xl p-4 sm:p-6 overflow-hidden">
@@ -112,14 +105,14 @@ export function VisitorMap() {
           <WorldOutline />
 
           {/* Visitor dots */}
-          {Array.from(aggregated.values()).map(({ point, count }, i) => {
-            const { x, y } = project(point.lat, point.lng)
+          {visitors.map((visitor, i) => {
+            const { x, y } = project(visitor.lat, visitor.lng)
             return (
               <g key={i}>
                 <circle
                   cx={x}
                   cy={y}
-                  r={Math.min(3 + count, 8)}
+                  r={Math.min(3 + visitor.count, 8)}
                   fill="rgba(20, 184, 166, 0.6)"
                   stroke="rgb(20, 184, 166)"
                   strokeWidth={1}
@@ -128,18 +121,18 @@ export function VisitorMap() {
                     const rect = (e.target as SVGElement).closest('svg')!.getBoundingClientRect()
                     const svgX = (x / 960) * rect.width + rect.left
                     const svgY = (y / 480) * rect.height + rect.top
-                    setTooltip({ point, x: svgX, y: svgY })
+                    setTooltip({ visitor, x: svgX, y: svgY })
                   }}
                   onMouseLeave={() => setTooltip(null)}
                 />
                 {/* Pulse animation for current visitor */}
                 {currentVisitor &&
-                  point.city === currentVisitor.city &&
-                  point.country === currentVisitor.country && (
+                  visitor.city === currentVisitor.city &&
+                  visitor.country === currentVisitor.country && (
                     <circle
                       cx={x}
                       cy={y}
-                      r={Math.min(3 + count, 8)}
+                      r={Math.min(3 + visitor.count, 8)}
                       fill="none"
                       stroke="rgb(20, 184, 166)"
                       strokeWidth={1.5}
@@ -147,8 +140,8 @@ export function VisitorMap() {
                     >
                       <animate
                         attributeName="r"
-                        from={String(Math.min(3 + count, 8))}
-                        to={String(Math.min(3 + count, 8) + 8)}
+                        from={String(Math.min(3 + visitor.count, 8))}
+                        to={String(Math.min(3 + visitor.count, 8) + 8)}
                         dur="1.5s"
                         repeatCount="indefinite"
                       />
@@ -172,7 +165,8 @@ export function VisitorMap() {
             className="fixed z-50 px-3 py-2 bg-gray-800 text-gray-200 text-xs rounded-lg shadow-lg pointer-events-none"
             style={{ left: tooltip.x, top: tooltip.y - 40 }}
           >
-            <div className="font-medium">{tooltip.point.city}, {tooltip.point.country}</div>
+            <div className="font-medium">{tooltip.visitor.city}, {tooltip.visitor.country}</div>
+            <div className="text-gray-400">{tooltip.visitor.count} visits</div>
           </div>
         )}
       </div>
@@ -180,37 +174,34 @@ export function VisitorMap() {
       {/* Stats summary */}
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-400">
         <div>
-          <span className="text-teal-400 font-semibold">{visitors.length}</span> visits recorded
+          <span className="text-teal-400 font-semibold">{totalVisits}</span> visits recorded
         </div>
         <div>
-          <span className="text-teal-400 font-semibold">{aggregated.size}</span> unique locations
+          <span className="text-teal-400 font-semibold">{visitors.length}</span> unique locations
         </div>
         <div>
-          <span className="text-teal-400 font-semibold">
-            {new Set(visitors.map((v) => v.country)).size}
-          </span>{' '}
-          countries
+          <span className="text-teal-400 font-semibold">{uniqueCountries}</span> countries
         </div>
       </div>
 
-      {/* Recent visitors list */}
-      {aggregated.size > 0 && (
+      {/* Visitor locations list */}
+      {visitors.length > 0 && (
         <div className="mt-4 border-t border-gray-800 pt-4">
           <h3 className="text-sm font-medium text-gray-300 mb-2">Visitor Locations</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {Array.from(aggregated.entries())
-              .sort((a, b) => b[1].count - a[1].count)
+            {[...visitors]
+              .sort((a, b) => b.count - a.count)
               .slice(0, 12)
-              .map(([key, { point, count }]) => (
+              .map((visitor) => (
                 <div
-                  key={key}
+                  key={`${visitor.city}-${visitor.country}`}
                   className="text-xs text-gray-400 flex items-center gap-2"
                 >
                   <span className="w-2 h-2 rounded-full bg-teal-500 flex-shrink-0" />
                   <span className="truncate">
-                    {point.city}, {point.country}
+                    {visitor.city}, {visitor.country}
                   </span>
-                  <span className="text-gray-600 ml-auto">{count}</span>
+                  <span className="text-gray-600 ml-auto">{visitor.count}</span>
                 </div>
               ))}
           </div>
@@ -218,7 +209,7 @@ export function VisitorMap() {
       )}
 
       <p className="text-[11px] text-gray-600 mt-4">
-        Visitor locations are stored locally in your browser. The map shows data from the past 6 months.
+        Visitor locations are aggregated anonymously. Only city-level data is stored.
       </p>
     </div>
   )

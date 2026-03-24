@@ -12,6 +12,7 @@
     "@tailwindcss/postcss": "^4.2.2",
     "autoprefixer": "^10.4.27",
     "date-fns": "^4.1.0",
+    "firebase": "^12.11.0",
     "gray-matter": "^4.0.3",
     "next": "^16.2.1",
     "next-mdx-remote": "^6.0.0",
