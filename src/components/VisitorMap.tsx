@@ -3,7 +3,7 @@
 import { useEffect, useState, memo } from 'react'
 import { worldMapPath } from '@/data/worldMapPaths'
 import { getDb } from '@/lib/firebase'
-import { ref, onValue, runTransaction } from 'firebase/database'
+import { ref, onValue } from 'firebase/database'
 
 interface AggregatedVisitor {
   lat: number
@@ -30,11 +30,6 @@ function project(lat: number, lng: number): { x: number; y: number } {
   return { x, y: Math.max(0, Math.min(MAP_FULL_H, y)) }
 }
 
-// Sanitize string for use as a Firebase RTDB key
-function sanitizeKey(s: string): string {
-  return s.replace(/[.#$\[\]\/]/g, '_')
-}
-
 export function VisitorMap() {
   const [visitors, setVisitors] = useState<AggregatedVisitor[]>([])
   const [currentVisitor, setCurrentVisitor] = useState<{ city: string; country: string } | null>(null)
@@ -57,41 +52,14 @@ export function VisitorMap() {
       }
     })
 
-    // Record current visitor (once per session)
-    const alreadyLogged = sessionStorage.getItem('visitor_logged')
-
-    if (!alreadyLogged) {
-      fetch('https://ipapi.co/json/')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.latitude && data.longitude) {
-            const city = data.city || 'Unknown'
-            const country = data.country_name || 'Unknown'
-            const key = sanitizeKey(`${city}-${country}`)
-            const locationRef = ref(db, `visitors/${key}`)
-
-            setCurrentVisitor({ city, country })
-
-            runTransaction(locationRef, (current) => {
-              if (current) {
-                return { ...current, count: current.count + 1, lastVisit: Date.now() }
-              }
-              return {
-                lat: data.latitude,
-                lng: data.longitude,
-                city,
-                country,
-                count: 1,
-                lastVisit: Date.now(),
-              }
-            })
-
-            sessionStorage.setItem('visitor_logged', 'true')
-          }
-        })
-        .catch(() => {
-          // Geo lookup failed — that's OK
-        })
+    // Read current visitor location recorded by VisitorTracker for pulse animation
+    const stored = localStorage.getItem('visitor_location')
+    if (stored) {
+      try {
+        setCurrentVisitor(JSON.parse(stored))
+      } catch {
+        // ignore malformed data
+      }
     }
 
     return () => unsubscribe()
