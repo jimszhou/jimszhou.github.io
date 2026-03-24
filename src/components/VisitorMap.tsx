@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo } from 'react'
+import { worldMapPath } from '@/data/worldMapPaths'
 import { getDb } from '@/lib/firebase'
 import { ref, onValue, runTransaction } from 'firebase/database'
 
@@ -13,13 +14,20 @@ interface AggregatedVisitor {
   lastVisit: number
 }
 
-// Simple Mercator projection for the SVG map (960x480 viewBox)
+// Mercator projection constants
+// Full projection maps to 960×480; the viewBox crops to the visible region.
+const MAP_W = 960
+const MAP_FULL_H = 480
+// Crop: show y from VIEW_Y to VIEW_Y+VIEW_H (cuts empty Arctic/Antarctic)
+const VIEW_Y = 5
+const VIEW_H = 420
+
 function project(lat: number, lng: number): { x: number; y: number } {
-  const x = ((lng + 180) / 360) * 960
+  const x = ((lng + 180) / 360) * MAP_W
   const latRad = (lat * Math.PI) / 180
   const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2))
-  const y = 240 - (mercN * 960) / (2 * Math.PI)
-  return { x, y: Math.max(0, Math.min(480, y)) }
+  const y = MAP_FULL_H / 2 - (mercN * MAP_W) / (2 * Math.PI)
+  return { x, y: Math.max(0, Math.min(MAP_FULL_H, y)) }
 }
 
 // Sanitize string for use as a Firebase RTDB key
@@ -97,7 +105,7 @@ export function VisitorMap() {
       {/* SVG World Map */}
       <div className="relative">
         <svg
-          viewBox="0 0 960 480"
+          viewBox={`0 ${VIEW_Y} ${MAP_W} ${VIEW_H}`}
           className="w-full h-auto"
           style={{ background: 'transparent' }}
         >
@@ -119,8 +127,8 @@ export function VisitorMap() {
                   className="cursor-pointer"
                   onMouseEnter={(e) => {
                     const rect = (e.target as SVGElement).closest('svg')!.getBoundingClientRect()
-                    const svgX = (x / 960) * rect.width + rect.left
-                    const svgY = (y / 480) * rect.height + rect.top
+                    const svgX = (x / MAP_W) * rect.width + rect.left
+                    const svgY = ((y - VIEW_Y) / VIEW_H) * rect.height + rect.top
                     setTooltip({ visitor, x: svgX, y: svgY })
                   }}
                   onMouseLeave={() => setTooltip(null)}
@@ -216,12 +224,13 @@ export function VisitorMap() {
 }
 
 /**
- * Simplified SVG world map outlines
- * Using a minimal set of path data for major landmasses
+ * Accurate world map outline from Natural Earth 110m data.
+ * Pre-projected to Mercator; viewBox crops to the visible region.
+ * Memoized since the path data never changes.
  */
-function WorldOutline() {
+const WorldOutline = memo(function WorldOutline() {
   return (
-    <g fill="none" stroke="rgb(55, 65, 81)" strokeWidth={0.5}>
+    <g>
       {/* Grid lines */}
       {[-60, -30, 0, 30, 60].map((lat) => {
         const { y } = project(lat, 0)
@@ -230,7 +239,7 @@ function WorldOutline() {
             key={`lat-${lat}`}
             x1={0}
             y1={y}
-            x2={960}
+            x2={MAP_W}
             y2={y}
             stroke="rgb(31, 41, 55)"
             strokeWidth={0.3}
@@ -244,32 +253,22 @@ function WorldOutline() {
           <line
             key={`lng-${lng}`}
             x1={x}
-            y1={0}
+            y1={VIEW_Y}
             x2={x}
-            y2={480}
+            y2={VIEW_Y + VIEW_H}
             stroke="rgb(31, 41, 55)"
             strokeWidth={0.3}
             strokeDasharray="4,4"
           />
         )
       })}
-      {/* Simplified continent outlines */}
-      <g fill="rgb(31, 41, 55)" stroke="rgb(55, 65, 81)" strokeWidth={0.5}>
-        {/* North America */}
-        <path d="M130,85 L155,80 L175,90 L195,85 L215,90 L230,100 L240,115 L245,130 L250,145 L260,155 L265,165 L270,175 L275,180 L270,190 L260,195 L250,200 L240,210 L230,215 L220,220 L210,225 L200,225 L190,220 L185,225 L175,230 L165,230 L155,225 L150,220 L145,210 L140,200 L138,195 L135,190 L130,180 L125,170 L120,160 L115,150 L110,140 L105,130 L108,120 L115,110 L120,100 L125,90 Z" />
-        {/* South America */}
-        <path d="M220,260 L235,255 L250,258 L265,265 L275,275 L280,290 L282,305 L280,320 L275,335 L270,350 L262,365 L255,375 L248,385 L240,390 L232,388 L225,380 L220,370 L218,360 L215,345 L212,330 L210,315 L208,300 L210,285 L212,270 Z" />
-        {/* Europe */}
-        <path d="M440,90 L455,85 L470,88 L480,95 L490,100 L500,105 L510,108 L520,115 L515,125 L510,135 L505,140 L500,145 L495,150 L488,155 L480,160 L470,162 L460,158 L452,155 L445,150 L438,145 L435,140 L433,135 L430,125 L432,115 L435,105 L438,95 Z" />
-        {/* Africa */}
-        <path d="M450,170 L465,168 L480,170 L495,175 L510,180 L520,190 L528,205 L532,220 L535,240 L533,260 L530,280 L525,295 L518,310 L510,320 L500,328 L490,332 L480,330 L470,322 L462,310 L458,295 L455,280 L452,260 L450,240 L448,220 L446,200 L445,185 Z" />
-        {/* Asia */}
-        <path d="M520,80 L545,75 L570,72 L600,70 L630,68 L660,70 L690,75 L720,80 L740,85 L755,90 L770,100 L780,110 L785,120 L790,135 L785,150 L780,160 L770,170 L755,178 L740,182 L725,185 L710,188 L695,190 L680,188 L665,185 L650,180 L638,178 L625,175 L610,170 L600,165 L590,160 L575,155 L560,150 L548,145 L538,140 L530,132 L525,120 L520,110 L518,95 Z" />
-        {/* Australia */}
-        <path d="M720,295 L740,290 L760,292 L778,298 L790,308 L795,320 L792,335 L785,345 L775,352 L760,355 L745,352 L732,345 L722,335 L718,320 L716,308 Z" />
-        {/* Greenland */}
-        <path d="M285,50 L305,45 L320,48 L330,55 L332,65 L328,75 L318,80 L305,82 L292,78 L282,70 L280,60 Z" />
-      </g>
+      {/* Land masses from Natural Earth 110m */}
+      <path
+        d={worldMapPath}
+        fill="rgb(31, 41, 55)"
+        stroke="rgb(55, 65, 81)"
+        strokeWidth={0.5}
+      />
     </g>
   )
-}
+})
