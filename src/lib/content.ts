@@ -45,11 +45,14 @@ export function getAllContent(dir: string): ContentMeta[] {
     return { ...data, slug } as ContentMeta
   })
 
-  // Sort by date descending
-  return items.sort((a, b) => {
-    if (!a.date || !b.date) return 0
-    return new Date(b.date).getTime() - new Date(a.date).getTime()
-  })
+  // Sort by date descending (newest first)
+  // Fall back to slug as date for files like checkins where slug is the date
+  const getDate = (item: ContentMeta): number => {
+    if (item.date) return new Date(item.date).getTime()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(item.slug)) return new Date(item.slug).getTime()
+    return 0
+  }
+  return items.sort((a, b) => getDate(b) - getDate(a))
 }
 
 export function getCheckinDates(): string[] {
