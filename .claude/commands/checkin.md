@@ -5,7 +5,8 @@ Write a daily check-in post for my blog.
 The user will provide:
 - **Date**: The date for the post (YYYY-MM-DD format)
 - **Topic**: The algorithm/data structure/technique being studied
-- **Problems**: LeetCode problem numbers and names that were solved
+- **Problems**: LeetCode problem numbers and names that were solved (optional)
+- **Article**: Some learning materials, blog/post/articles/web-page urls that needs to be summarized
 
 ## Post Location & Format
 
