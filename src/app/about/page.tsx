@@ -14,7 +14,7 @@ export default function AboutPage() {
     <div className="space-y-12 max-w-3xl">
       <section>
         <h1 className="text-3xl font-bold mb-2">{resume.name}</h1>
-        <p className="text-teal-400 text-lg mb-4">{resume.title}</p>
+        <p className="text-accent text-lg mb-4">{resume.title}</p>
         <p className="text-gray-400 leading-relaxed">{resume.summary}</p>
       </section>
 
@@ -24,20 +24,20 @@ export default function AboutPage() {
         <div className="space-y-8">
           {resume.experience.map((exp: any, i: number) => (
             <div key={i} className="relative pl-6 border-l-2 border-gray-800">
-              <div className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-teal-500" />
+              <div className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-accent" />
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
                 <h3 className="font-semibold text-lg">{exp.role}</h3>
                 <span className="text-sm text-gray-500">
                   {exp.start} — {exp.end ?? 'Present'}
                 </span>
               </div>
-              <p className="text-teal-400/80 text-sm mb-3">
+              <p className="text-accent/80 text-sm mb-3">
                 {exp.company} · {exp.location}
               </p>
               <ul className="space-y-2">
                 {exp.bullets.map((bullet: string, j: number) => (
                   <li key={j} className="text-gray-400 text-sm leading-relaxed flex gap-2">
-                    <span className="text-teal-500 mt-1 shrink-0">-</span>
+                    <span className="text-accent mt-1 shrink-0">-</span>
                     <span>{bullet}</span>
                   </li>
                 ))}
@@ -53,7 +53,7 @@ export default function AboutPage() {
         <div className="grid sm:grid-cols-2 gap-6">
           {Object.entries(resume.skills).map(([category, skills]: [string, any]) => (
             <div key={category}>
-              <h3 className="text-sm font-medium text-teal-400 mb-2">{category}</h3>
+              <h3 className="text-sm font-medium text-accent mb-2">{category}</h3>
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill: string) => (
                   <span
@@ -87,7 +87,7 @@ export default function AboutPage() {
       <div>
         <a
           href="/resume.pdf"
-          className="inline-block px-6 py-2 border border-teal-500 text-teal-400 rounded-lg hover:bg-teal-500/10 transition-colors text-sm"
+          className="inline-block px-6 py-2 border border-accent text-accent rounded-lg hover:bg-accent/10 transition-colors text-sm"
         >
           {site?.pages.about.resumeDownload}
         </a>

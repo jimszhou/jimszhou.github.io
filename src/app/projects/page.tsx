@@ -20,9 +20,9 @@ export default function ProjectsPage() {
           <Link
             key={project.slug}
             href={`/projects/${project.slug}`}
-            className="group p-6 border border-gray-800 rounded-xl hover:border-teal-500/50 transition-colors"
+            className="group p-6 border border-gray-800 rounded-xl hover:border-accent/40 transition-colors"
           >
-            <h2 className="font-semibold text-lg mb-2 group-hover:text-teal-400 transition-colors">
+            <h2 className="font-semibold text-lg mb-2 group-hover:text-accent transition-colors">
               {project.title}
             </h2>
             {project.description && (

@@ -6,14 +6,32 @@ import siteContent from '../../content/site.json'
 
 const navItems = siteContent.nav
 
+function CatLogo() {
+  return (
+    <span className="cat-logo inline-block font-mono text-[10px] leading-[1.1] select-none" aria-label="Cool cat logo">
+      <span className="block">
+        <span className="text-[#6B9BD2]">{' /\\_/\\'}</span>
+      </span>
+      <span className="block">
+        <span className="text-[#6B9BD2]">{'('}</span>
+        <span className="cat-shades text-[#E8B84B]">{' \u25A0_\u25A0'}</span>
+        <span className="text-[#6B9BD2]">{' )'}</span>
+      </span>
+      <span className="block">
+        <span className="text-[#6B9BD2]">{' > ^ <'}</span>
+      </span>
+    </span>
+  )
+}
+
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <header className="border-b border-gray-800 bg-black/50 backdrop-blur-sm sticky top-0 z-50">
+    <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold text-teal-400 hover:text-teal-300 transition-colors">
-          {siteContent.hero.name}
+        <Link href="/" className="hover:opacity-80 transition-opacity flex items-center gap-3">
+          <CatLogo />
         </Link>
 
         {/* Desktop nav */}
@@ -22,7 +40,7 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className="text-gray-300 hover:text-teal-400 transition-colors text-sm"
+              className="text-gray-400 hover:text-accent transition-colors text-sm"
             >
               {item.label}
             </Link>
@@ -31,7 +49,7 @@ export function Header() {
 
         {/* Mobile menu button */}
         <button
-          className="md:hidden text-gray-300 hover:text-teal-400"
+          className="md:hidden text-gray-400 hover:text-accent"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
         >
@@ -47,12 +65,12 @@ export function Header() {
 
       {/* Mobile nav */}
       {menuOpen && (
-        <nav className="md:hidden border-t border-gray-800 bg-black/95 px-4 py-4 flex flex-col gap-3">
+        <nav className="md:hidden border-t border-gray-800 bg-gray-950/95 px-4 py-4 flex flex-col gap-3">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="text-gray-300 hover:text-teal-400 transition-colors"
+              className="text-gray-400 hover:text-accent transition-colors"
               onClick={() => setMenuOpen(false)}
             >
               {item.label}

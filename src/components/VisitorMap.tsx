@@ -89,8 +89,8 @@ export function VisitorMap() {
                   cx={x}
                   cy={y}
                   r={Math.min(3 + visitor.count, 8)}
-                  fill="rgba(20, 184, 166, 0.6)"
-                  stroke="rgb(20, 184, 166)"
+                  fill="rgba(218, 119, 86, 0.6)"
+                  stroke="rgb(218, 119, 86)"
                   strokeWidth={1}
                   className="cursor-pointer"
                   onMouseEnter={(e) => {
@@ -110,7 +110,7 @@ export function VisitorMap() {
                       cy={y}
                       r={Math.min(3 + visitor.count, 8)}
                       fill="none"
-                      stroke="rgb(20, 184, 166)"
+                      stroke="rgb(218, 119, 86)"
                       strokeWidth={1.5}
                       opacity={0.6}
                     >
@@ -150,13 +150,13 @@ export function VisitorMap() {
       {/* Stats summary */}
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-400">
         <div>
-          <span className="text-teal-400 font-semibold">{totalVisits}</span> visits recorded
+          <span className="text-accent font-semibold">{totalVisits}</span> visits recorded
         </div>
         <div>
-          <span className="text-teal-400 font-semibold">{visitors.length}</span> unique locations
+          <span className="text-accent font-semibold">{visitors.length}</span> unique locations
         </div>
         <div>
-          <span className="text-teal-400 font-semibold">{uniqueCountries}</span> countries
+          <span className="text-accent font-semibold">{uniqueCountries}</span> countries
         </div>
       </div>
 
@@ -173,7 +173,7 @@ export function VisitorMap() {
                   key={`${visitor.city}-${visitor.country}`}
                   className="text-xs text-gray-400 flex items-center gap-2"
                 >
-                  <span className="w-2 h-2 rounded-full bg-teal-500 flex-shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
                   <span className="truncate">
                     {visitor.city}, {visitor.country}
                   </span>
@@ -209,7 +209,7 @@ const WorldOutline = memo(function WorldOutline() {
             y1={y}
             x2={MAP_W}
             y2={y}
-            stroke="rgb(31, 41, 55)"
+            stroke="rgb(42, 38, 32)"
             strokeWidth={0.3}
             strokeDasharray="4,4"
           />
@@ -224,7 +224,7 @@ const WorldOutline = memo(function WorldOutline() {
             y1={VIEW_Y}
             x2={x}
             y2={VIEW_Y + VIEW_H}
-            stroke="rgb(31, 41, 55)"
+            stroke="rgb(42, 38, 32)"
             strokeWidth={0.3}
             strokeDasharray="4,4"
           />
@@ -233,8 +233,8 @@ const WorldOutline = memo(function WorldOutline() {
       {/* Land masses from Natural Earth 110m */}
       <path
         d={worldMapPath}
-        fill="rgb(31, 41, 55)"
-        stroke="rgb(55, 65, 81)"
+        fill="rgb(42, 38, 32)"
+        stroke="rgb(61, 57, 53)"
         strokeWidth={0.5}
       />
     </g>
