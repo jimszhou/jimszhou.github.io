@@ -24,7 +24,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="max-w-3xl">
-      <Link href="/projects" className="text-sm text-gray-500 hover:text-teal-400 transition-colors mb-6 inline-block">
+      <Link href="/projects" className="text-sm text-gray-500 hover:text-accent transition-colors mb-6 inline-block">
         &larr; Back to Projects
       </Link>
 
@@ -37,7 +37,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
               href={data.meta.github}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-teal-400 hover:underline"
+              className="text-accent hover:underline"
             >
               GitHub
             </a>
@@ -47,7 +47,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
               href={data.meta.demo}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-teal-400 hover:underline"
+              className="text-accent hover:underline"
             >
               Live Demo
             </a>

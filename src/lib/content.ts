@@ -55,14 +55,6 @@ export function getAllContent(dir: string): ContentMeta[] {
   return items.sort((a, b) => getDate(b) - getDate(a))
 }
 
-export function getCheckinDates(): string[] {
-  const dir = path.join(contentDir, 'checkins')
-  if (!fs.existsSync(dir)) return []
-  return fs.readdirSync(dir)
-    .filter((f) => f.endsWith('.md') || f.endsWith('.mdx'))
-    .map((f) => f.replace(/\.(mdx|md)$/, ''))
-    .sort()
-}
 
 export function getResume() {
   const filePath = path.join(contentDir, 'resume.json')

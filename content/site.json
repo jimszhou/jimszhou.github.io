@@ -17,13 +17,9 @@
       "title": "Projects",
       "description": "Hands-on engineering projects — from LLM infrastructure to distributed systems."
     },
-    "checkin": {
-      "title": "Check-in",
-      "descriptionTemplate": "Daily learning log — {count} check-ins and counting."
-    },
-    "aiLab": {
-      "title": "AI Lab",
-      "description": "AI experiments, deep-dives, and explorations in machine learning."
+    "notes": {
+      "title": "Notes",
+      "descriptionTemplate": "Learning notes & insights — {count} entries and counting."
     }
   },
   "pages": {
@@ -31,13 +27,9 @@
       "title": "Projects",
       "subtitle": "Hands-on engineering projects and explorations."
     },
-    "aiLab": {
-      "title": "AI Lab",
-      "subtitle": "AI learning, experiments, and deep-dives."
-    },
-    "checkin": {
-      "title": "Check-in",
-      "subtitleTemplate": "Daily learning log — {count} check-ins so far."
+    "notes": {
+      "title": "Notes",
+      "subtitleTemplate": "{count} learning notes so far."
     },
     "about": {
       "resumeDownload": "Download Resume (PDF)",
@@ -52,8 +44,7 @@
     { "href": "/", "label": "Home" },
     { "href": "/about", "label": "About" },
     { "href": "/projects", "label": "Projects" },
-    { "href": "/checkin", "label": "Check-in" },
-    { "href": "/ai-lab", "label": "AI Lab" },
+    { "href": "/checkin", "label": "Notes" },
     { "href": "/stats", "label": "Stats" }
   ],
   "footer": {

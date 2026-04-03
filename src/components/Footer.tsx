@@ -12,7 +12,7 @@ export function Footer() {
             href={site?.social.github}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-teal-400 transition-colors"
+            className="hover:text-accent transition-colors"
           >
             GitHub
           </a>
@@ -20,7 +20,7 @@ export function Footer() {
             href={site?.social.linkedin}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-teal-400 transition-colors"
+            className="hover:text-accent transition-colors"
           >
             LinkedIn
           </a>
