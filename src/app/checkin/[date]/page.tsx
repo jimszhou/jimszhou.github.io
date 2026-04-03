@@ -25,7 +25,7 @@ export default async function CheckinDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="max-w-3xl">
       <Link href="/checkin" className="text-sm text-gray-500 hover:text-teal-400 transition-colors mb-6 inline-block">
-        &larr; Back to Check-in
+        &larr; Back to Notes
       </Link>
 
       <header className="mb-8">
