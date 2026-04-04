@@ -19,7 +19,7 @@ export default function NotesPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">{site?.pages.notes.title}</h1>
         <p className="text-gray-400 mb-6">
-          {site?.pages.notes.subtitleTemplate.replace('{count}', String(notes.length))}
+          {site?.pages.notes.subtitle}
         </p>
       </div>
 

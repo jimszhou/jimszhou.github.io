@@ -1,0 +1,40 @@
+'use client'
+
+import Link from 'next/link'
+import { useVisitorStats } from '@/hooks/useVisitorStats'
+
+export function StatsWidget() {
+  const { totalVisits, uniqueLocations, uniqueCountries, loading } = useVisitorStats()
+
+  const stats = [
+    { label: 'visits', value: totalVisits },
+    { label: 'locations', value: uniqueLocations },
+    { label: 'countries', value: uniqueCountries },
+  ]
+
+  return (
+    <Link
+      href="/stats"
+      className="group block p-6 border border-gray-800 rounded-xl hover:border-accent/40 transition-colors"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-lg group-hover:text-accent transition-colors">
+          Visitor Reach
+        </h3>
+        <span className="text-xs text-gray-500 group-hover:text-accent transition-colors">
+          See full map &rarr;
+        </span>
+      </div>
+      <div className="flex gap-8">
+        {stats.map((stat) => (
+          <div key={stat.label}>
+            <span className="text-2xl font-bold text-accent">
+              {loading ? '—' : stat.value}
+            </span>
+            <span className="block text-xs text-gray-500 mt-1">{stat.label}</span>
+          </div>
+        ))}
+      </div>
+    </Link>
+  )
+}

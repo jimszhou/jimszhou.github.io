@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getAllContent, getSiteContent } from '@/lib/content'
+import { StatsWidget } from '@/components/StatsWidget'
 
 export default function Home() {
   const site = getSiteContent()
@@ -36,6 +37,12 @@ export default function Home() {
           >
             LinkedIn
           </a>
+          <a
+            href="/resume.pdf"
+            className="px-4 py-2 border border-accent text-accent rounded-lg text-sm hover:bg-accent/10 transition-colors"
+          >
+            {site.hero.resumeLabel}
+          </a>
         </div>
       </section>
 
@@ -66,6 +73,11 @@ export default function Home() {
             </p>
           </Link>
         </div>
+      </section>
+
+      {/* Visitor Reach */}
+      <section>
+        <StatsWidget />
       </section>
 
       {/* Recent Notes */}
