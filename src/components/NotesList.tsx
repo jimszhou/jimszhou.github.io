@@ -1,7 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+
+const INITIAL_COUNT = 6
 
 interface Note {
   title: string
@@ -11,10 +13,17 @@ interface Note {
 
 export function NotesList({ notes, allTags }: { notes: Note[]; allTags: string[] }) {
   const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+
+  useEffect(() => {
+    setShowAll(false)
+  }, [activeTag])
 
   const filtered = activeTag
     ? notes.filter((n) => n.tags?.includes(activeTag))
     : notes
+
+  const displayed = showAll ? filtered : filtered.slice(0, INITIAL_COUNT)
 
   return (
     <>
@@ -45,7 +54,7 @@ export function NotesList({ notes, allTags }: { notes: Note[]; allTags: string[]
       </div>
 
       <div className="space-y-4">
-        {filtered.map((note) => (
+        {displayed.map((note) => (
           <Link
             key={note.slug}
             href={`/checkin/${note.slug}`}
@@ -73,6 +82,15 @@ export function NotesList({ notes, allTags }: { notes: Note[]; allTags: string[]
           <p className="text-gray-500 text-sm">No notes found for this tag.</p>
         )}
       </div>
+
+      {!showAll && filtered.length > INITIAL_COUNT && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="mt-4 text-sm text-accent hover:underline"
+        >
+          Show all {filtered.length} notes
+        </button>
+      )}
     </>
   )
 }

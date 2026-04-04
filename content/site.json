@@ -6,7 +6,8 @@
   "hero": {
     "name": "Jim Zhou",
     "title": "Senior SDE | AI Infrastructure",
-    "bio": "Senior Software Development Engineer with 5 years of experience building scalable backend systems, full-stack applications, and cloud-native infrastructure with Python. Currently diving deep into AI infrastructure — LLM serving, GPU optimization, and distributed ML systems."
+    "bio": "Senior Software Development Engineer with 5 years of experience building scalable backend systems, full-stack applications, and cloud-native infrastructure with Python. Currently diving deep into AI infrastructure — LLM serving, GPU optimization, and distributed ML systems.",
+    "resumeLabel": "Resume"
   },
   "social": {
     "github": "https://github.com/jimszhou",
@@ -29,7 +30,7 @@
     },
     "notes": {
       "title": "Notes",
-      "subtitleTemplate": "{count} learning notes so far."
+      "subtitle": "Pick an interesting topic and learn."
     },
     "about": {
       "resumeDownload": "Download Resume (PDF)",
@@ -42,7 +43,7 @@
   },
   "nav": [
     { "href": "/", "label": "Home" },
-    { "href": "/about", "label": "About" },
+    { "href": "/about", "label": "Me" },
     { "href": "/projects", "label": "Projects" },
     { "href": "/checkin", "label": "Notes" },
     { "href": "/stats", "label": "Stats" }

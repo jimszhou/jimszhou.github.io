@@ -2,17 +2,7 @@
 
 import { useEffect, useState, memo } from 'react'
 import { worldMapPath } from '@/data/worldMapPaths'
-import { getDb } from '@/lib/firebase'
-import { ref, onValue } from 'firebase/database'
-
-interface AggregatedVisitor {
-  lat: number
-  lng: number
-  city: string
-  country: string
-  count: number
-  lastVisit: number
-}
+import { useVisitorStats, type AggregatedVisitor } from '@/hooks/useVisitorStats'
 
 // Mercator projection constants
 // Full projection maps to 960×480; the viewBox crops to the visible region.
@@ -31,28 +21,11 @@ function project(lat: number, lng: number): { x: number; y: number } {
 }
 
 export function VisitorMap() {
-  const [visitors, setVisitors] = useState<AggregatedVisitor[]>([])
+  const { visitors, totalVisits, uniqueCountries } = useVisitorStats()
   const [currentVisitor, setCurrentVisitor] = useState<{ city: string; country: string } | null>(null)
   const [tooltip, setTooltip] = useState<{ visitor: AggregatedVisitor; x: number; y: number } | null>(null)
 
   useEffect(() => {
-    const db = getDb()
-    if (!db) return
-
-    const visitorsRef = ref(db, 'visitors')
-
-    // Listen for realtime updates from Firebase
-    const unsubscribe = onValue(visitorsRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        const entries: AggregatedVisitor[] = Object.values(data)
-        setVisitors(entries)
-      } else {
-        setVisitors([])
-      }
-    })
-
-    // Read current visitor location recorded by VisitorTracker for pulse animation
     const stored = localStorage.getItem('visitor_location')
     if (stored) {
       try {
@@ -61,12 +34,7 @@ export function VisitorMap() {
         // ignore malformed data
       }
     }
-
-    return () => unsubscribe()
   }, [])
-
-  const totalVisits = visitors.reduce((sum, v) => sum + v.count, 0)
-  const uniqueCountries = new Set(visitors.map((v) => v.country)).size
 
   return (
     <div className="border border-gray-800 rounded-xl p-4 sm:p-6 overflow-hidden">
