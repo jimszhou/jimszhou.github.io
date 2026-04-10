@@ -11,7 +11,7 @@ export default function Home() {
     <div className="space-y-16">
       {/* Hero */}
       <section className="pt-8 sm:pt-16">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4">
           {site.hero.name}
         </h1>
         <p className="text-xl text-accent mb-6">

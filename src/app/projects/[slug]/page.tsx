@@ -29,7 +29,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
       </Link>
 
       <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-3">{data.meta.title}</h1>
+        <h1 className="text-xl font-bold mb-3">{data.meta.title}</h1>
         <div className="flex items-center gap-4 text-sm text-gray-500">
           {data.meta.date && <span>{data.meta.date}</span>}
           {data.meta.github && (

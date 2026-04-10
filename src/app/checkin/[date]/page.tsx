@@ -29,7 +29,7 @@ export default async function CheckinDetailPage({ params }: { params: Promise<{ 
       </Link>
 
       <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">{data.meta.title}</h1>
+        <h1 className="text-xl font-bold mb-2">{data.meta.title}</h1>
         <span className="text-sm text-gray-500">{date}</span>
         {data.meta.tags && (
           <div className="flex gap-2 flex-wrap mt-3">
