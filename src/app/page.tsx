@@ -100,7 +100,7 @@ export default function Home() {
                     {note.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
+                        className="font-tag text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
                       >
                         {tag}
                       </span>

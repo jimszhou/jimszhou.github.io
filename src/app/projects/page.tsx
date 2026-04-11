@@ -33,7 +33,7 @@ export default function ProjectsPage() {
                 {project.tags?.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
+                    className="font-tag text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
                   >
                     {tag}
                   </span>
