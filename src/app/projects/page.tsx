@@ -12,7 +12,7 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl sm:text-4xl mb-2">{site?.pages.projects.title}</h1>
+      <h1 className="text-xl font-bold mb-2">{site?.pages.projects.title}</h1>
       <p className="text-gray-400 mb-8">{site?.pages.projects.subtitle}</p>
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -22,7 +22,7 @@ export default function ProjectsPage() {
             href={`/projects/${project.slug}`}
             className="group p-6 border border-gray-800 rounded-xl hover:border-accent/40 transition-colors"
           >
-            <h2 className="text-xl mb-2 group-hover:text-accent transition-colors">
+            <h2 className="font-semibold text-lg mb-2 group-hover:text-accent transition-colors">
               {project.title}
             </h2>
             {project.description && (
@@ -33,7 +33,7 @@ export default function ProjectsPage() {
                 {project.tags?.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="font-stencil text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
+                    className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
                   >
                     {tag}
                   </span>

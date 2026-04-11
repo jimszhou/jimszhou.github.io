@@ -30,7 +30,7 @@ export function NotesList({ notes, allTags }: { notes: Note[]; allTags: string[]
       <div className="flex gap-2 flex-wrap mb-8">
         <button
           onClick={() => setActiveTag(null)}
-          className={`font-stencil text-xs px-3 py-1 rounded-full border transition-colors ${
+          className={`text-xs px-3 py-1 rounded-full border transition-colors ${
             activeTag === null
               ? 'bg-accent/20 border-accent text-accent'
               : 'border-gray-700 text-gray-400 hover:border-gray-500'
@@ -42,7 +42,7 @@ export function NotesList({ notes, allTags }: { notes: Note[]; allTags: string[]
           <button
             key={tag}
             onClick={() => setActiveTag(tag === activeTag ? null : tag)}
-            className={`font-stencil text-xs px-3 py-1 rounded-full border transition-colors ${
+            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
               activeTag === tag
                 ? 'bg-accent/20 border-accent text-accent'
                 : 'border-gray-700 text-gray-400 hover:border-gray-500'
@@ -61,7 +61,7 @@ export function NotesList({ notes, allTags }: { notes: Note[]; allTags: string[]
             className="block p-4 border border-gray-800 rounded-lg hover:border-accent/40 transition-colors"
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg">{note.title}</h3>
+              <h3 className="font-medium">{note.title}</h3>
               <span className="text-sm text-gray-500">{note.slug}</span>
             </div>
             {note.tags && (
@@ -69,7 +69,7 @@ export function NotesList({ notes, allTags }: { notes: Note[]; allTags: string[]
                 {note.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="font-stencil text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
+                    className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
                   >
                     {tag}
                   </span>

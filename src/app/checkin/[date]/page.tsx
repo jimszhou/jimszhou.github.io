@@ -29,12 +29,12 @@ export default async function CheckinDetailPage({ params }: { params: Promise<{ 
       </Link>
 
       <header className="mb-8">
-        <h1 className="text-3xl sm:text-4xl mb-2">{data.meta.title}</h1>
+        <h1 className="text-xl font-bold mb-2">{data.meta.title}</h1>
         <span className="text-sm text-gray-500">{date}</span>
         {data.meta.tags && (
           <div className="flex gap-2 flex-wrap mt-3">
             {data.meta.tags.map((tag) => (
-              <span key={tag} className="font-stencil text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
+              <span key={tag} className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
                 {tag}
               </span>
             ))}

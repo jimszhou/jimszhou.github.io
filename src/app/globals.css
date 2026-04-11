@@ -19,18 +19,9 @@
 
   --color-accent: #E07B39;
 
-  /* Google Font stack:
-   * - Fjalla One   : condensed display, used for headings & titles
-   * - Saira Stencil One : stencil accents, used for nav, tags, labels
-   * - Datatype     : dot-matrix / data display, used for body & mono
-   */
-  --font-display: 'Fjalla One', 'Arial Narrow', 'Helvetica Neue', sans-serif;
-  --font-stencil: 'Saira Stencil One', 'Impact', 'Arial Narrow', sans-serif;
-  --font-body: 'Datatype', 'Courier New', ui-monospace, monospace;
-
-  --font-sans: var(--font-body);
-  --font-serif: var(--font-display);
-  --font-mono: var(--font-body);
+  --font-sans: var(--font-pixel-body), 'Courier New', monospace;
+  --font-serif: var(--font-pixel-heading), 'Courier New', monospace;
+  --font-mono: var(--font-pixel-body), 'Courier New', monospace;
 }
 
 :root {
@@ -50,35 +41,18 @@
 body {
   background: var(--color-background);
   color: var(--color-foreground);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  letter-spacing: 0.01em;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  text-rendering: optimizeSpeed;
+  letter-spacing: 0.02em;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
+  font-family: var(--font-serif);
   font-weight: 400 !important;
-  letter-spacing: 0.03em;
-  line-height: 1.15;
-  text-transform: none;
-}
-
-/* Reusable font utility classes */
-.font-display {
-  font-family: var(--font-display);
-  letter-spacing: 0.03em;
-}
-
-.font-stencil {
-  font-family: var(--font-stencil);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.font-body {
-  font-family: var(--font-body);
+  letter-spacing: 0.05em;
+  line-height: 1.4;
 }
 
 /* ASCII cat animation */
@@ -103,15 +77,12 @@ h1, h2, h3, h4, h5, h6 {
 /* MDX content styles */
 .prose {
   max-width: 72ch;
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  line-height: 1.8;
 }
 
-.prose h1 { font-family: var(--font-display); font-size: 1.875rem; font-weight: 400; margin-top: 2rem; margin-bottom: 1rem; letter-spacing: 0.03em; line-height: 1.15; }
-.prose h2 { font-family: var(--font-display); font-size: 1.375rem; font-weight: 400; margin-top: 1.75rem; margin-bottom: 0.75rem; letter-spacing: 0.03em; line-height: 1.2; }
-.prose h3 { font-family: var(--font-display); font-size: 1.125rem; font-weight: 400; margin-top: 1.5rem; margin-bottom: 0.5rem; letter-spacing: 0.03em; line-height: 1.25; }
-.prose p { margin-bottom: 1rem; line-height: 1.8; }
+.prose h1 { font-size: 1.5rem; font-weight: 400; margin-top: 2rem; margin-bottom: 1rem; letter-spacing: 0.05em; }
+.prose h2 { font-size: 1.125rem; font-weight: 400; margin-top: 1.75rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; }
+.prose h3 { font-size: 1rem; font-weight: 400; margin-top: 1.5rem; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
+.prose p { margin-bottom: 1rem; line-height: 1.75; }
 .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
 .prose ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
 .prose li { margin-bottom: 0.25rem; line-height: 1.75; }
