@@ -29,7 +29,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
       </Link>
 
       <header className="mb-8">
-        <h1 className="text-xl font-bold mb-3">{data.meta.title}</h1>
+        <h1 className="text-3xl sm:text-4xl mb-3">{data.meta.title}</h1>
         <div className="flex items-center gap-4 text-sm text-gray-500">
           {data.meta.date && <span>{data.meta.date}</span>}
           {data.meta.github && (
@@ -56,7 +56,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
         {data.meta.tags && (
           <div className="flex gap-2 flex-wrap mt-3">
             {data.meta.tags.map((tag) => (
-              <span key={tag} className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
+              <span key={tag} className="font-stencil text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
                 {tag}
               </span>
             ))}

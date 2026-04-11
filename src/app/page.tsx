@@ -11,10 +11,10 @@ export default function Home() {
     <div className="space-y-16">
       {/* Hero */}
       <section className="pt-8 sm:pt-16">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4">
+        <h1 className="text-4xl sm:text-6xl mb-4 tracking-wide">
           {site.hero.name}
         </h1>
-        <p className="text-xl text-accent mb-6">
+        <p className="font-stencil text-xl sm:text-2xl text-accent mb-6">
           {site.hero.title}
         </p>
         <p className="text-gray-400 max-w-2xl text-lg leading-relaxed">
@@ -25,7 +25,7 @@ export default function Home() {
             href={site.social.github}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-accent hover:text-accent transition-colors"
+            className="font-stencil px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-accent hover:text-accent transition-colors"
           >
             GitHub
           </a>
@@ -33,13 +33,13 @@ export default function Home() {
             href={site.social.linkedin}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-accent hover:text-accent transition-colors"
+            className="font-stencil px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:border-accent hover:text-accent transition-colors"
           >
             LinkedIn
           </a>
           <a
             href="/resume.pdf"
-            className="px-4 py-2 border border-accent text-accent rounded-lg text-sm hover:bg-accent/10 transition-colors"
+            className="font-stencil px-4 py-2 border border-accent text-accent rounded-lg text-sm hover:bg-accent/10 transition-colors"
           >
             {site.hero.resumeLabel}
           </a>
@@ -48,7 +48,7 @@ export default function Home() {
 
       {/* Highlights */}
       <section>
-        <h2 className="text-2xl font-semibold mb-6">Explore</h2>
+        <h2 className="text-3xl mb-6">Explore</h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <Link
             href="/projects"
@@ -83,7 +83,7 @@ export default function Home() {
       {/* Recent Notes */}
       {recentNotes.length > 0 && (
         <section>
-          <h2 className="text-2xl font-semibold mb-6">Recent Notes</h2>
+          <h2 className="text-3xl mb-6">Recent Notes</h2>
           <div className="space-y-4">
             {recentNotes.map((note) => (
               <Link
@@ -92,7 +92,7 @@ export default function Home() {
                 className="block p-4 border border-gray-800 rounded-lg hover:border-accent/40 transition-colors"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium">{note.title}</h3>
+                  <h3 className="text-lg">{note.title}</h3>
                   <span className="text-sm text-gray-500">{note.slug}</span>
                 </div>
                 {note.tags && (
@@ -100,7 +100,7 @@ export default function Home() {
                     {note.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
+                        className="font-stencil text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
                       >
                         {tag}
                       </span>
