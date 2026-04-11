@@ -19,9 +19,18 @@
 
   --color-accent: #E07B39;
 
-  --font-sans: var(--font-pixel-body), 'Courier New', monospace;
-  --font-serif: var(--font-pixel-heading), 'Courier New', monospace;
-  --font-mono: var(--font-pixel-body), 'Courier New', monospace;
+  /* Google Font stack:
+   * - Bitcount Prop Single     : expressive pixel display, used for titles, headings, nav
+   * - Bitcount Prop Single Ink : inked pixel variant, used for tag pills
+   * - IBM Plex Serif           : readable serif, used for article/body content
+   */
+  --font-display: 'Bitcount Prop Single', 'Courier New', ui-monospace, monospace;
+  --font-tag: 'Bitcount Prop Single Ink', 'Bitcount Prop Single', ui-monospace, monospace;
+  --font-body: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+
+  --font-sans: var(--font-body);
+  --font-serif: var(--font-display);
+  --font-mono: 'Courier New', ui-monospace, monospace;
 }
 
 :root {
@@ -34,25 +43,36 @@
   --color-foreground: #F0EEEB;
 }
 
-* {
-  font-synthesis: none;
-}
-
 body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
-  -webkit-font-smoothing: none;
-  -moz-osx-font-smoothing: unset;
-  text-rendering: optimizeSpeed;
-  letter-spacing: 0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-weight: 400 !important;
-  letter-spacing: 0.05em;
-  line-height: 1.4;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+/* Reusable font utility classes */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.font-tag {
+  font-family: var(--font-tag);
+  letter-spacing: 0.03em;
+}
+
+.font-body {
+  font-family: var(--font-body);
 }
 
 /* ASCII cat animation */
@@ -77,11 +97,14 @@ h1, h2, h3, h4, h5, h6 {
 /* MDX content styles */
 .prose {
   max-width: 72ch;
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.75;
 }
 
-.prose h1 { font-size: 1.5rem; font-weight: 400; margin-top: 2rem; margin-bottom: 1rem; letter-spacing: 0.05em; }
-.prose h2 { font-size: 1.125rem; font-weight: 400; margin-top: 1.75rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; }
-.prose h3 { font-size: 1rem; font-weight: 400; margin-top: 1.5rem; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
+.prose h1 { font-family: var(--font-display); font-size: 2rem; font-weight: 400; margin-top: 2rem; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.2; }
+.prose h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; margin-top: 1.75rem; margin-bottom: 0.75rem; letter-spacing: 0.02em; line-height: 1.25; }
+.prose h3 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 400; margin-top: 1.5rem; margin-bottom: 0.5rem; letter-spacing: 0.02em; line-height: 1.3; }
 .prose p { margin-bottom: 1rem; line-height: 1.75; }
 .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
 .prose ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
@@ -89,7 +112,7 @@ h1, h2, h3, h4, h5, h6 {
 .prose a { color: #E07B39; text-decoration: underline; }
 .prose a:hover { color: #C86A2E; }
 .prose blockquote { border-left: 3px solid #E07B39; padding-left: 1rem; margin-left: 0; margin-bottom: 1rem; color: #B0ABA4; }
-.prose code { background: #1A1816; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; }
+.prose code { background: #1A1816; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; font-family: var(--font-mono); }
 .prose pre { margin-bottom: 1.5rem; border-radius: 0.5rem; overflow-x: auto; }
 .prose pre code { background: transparent; padding: 0; }
 .prose img { border-radius: 0.5rem; margin: 1.5rem 0; }

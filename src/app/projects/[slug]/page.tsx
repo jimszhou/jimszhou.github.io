@@ -56,7 +56,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
         {data.meta.tags && (
           <div className="flex gap-2 flex-wrap mt-3">
             {data.meta.tags.map((tag) => (
-              <span key={tag} className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
+              <span key={tag} className="font-tag text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
                 {tag}
               </span>
             ))}
