@@ -12,7 +12,7 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2">{site?.pages.projects.title}</h1>
+      <h1 className="text-xl font-bold mb-2">{site?.pages.projects.title}</h1>
       <p className="text-gray-400 mb-8">{site?.pages.projects.subtitle}</p>
 
       <div className="grid sm:grid-cols-2 gap-4">

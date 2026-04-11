@@ -10,7 +10,7 @@ export const metadata = {
 export default function StatsPage() {
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2">{site?.pages.stats.title}</h1>
+      <h1 className="text-xl font-bold mb-2">{site?.pages.stats.title}</h1>
       <p className="text-gray-400 mb-8">{site?.pages.stats.subtitle}</p>
 
       {/* World Map */}

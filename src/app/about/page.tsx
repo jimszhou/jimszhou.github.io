@@ -13,7 +13,7 @@ export default function AboutPage() {
   return (
     <div className="space-y-12 max-w-3xl">
       <section>
-        <h1 className="text-3xl font-bold mb-2">{resume.name}</h1>
+        <h1 className="text-xl font-bold mb-2">{resume.name}</h1>
         <p className="text-accent text-lg mb-4">{resume.title}</p>
         <p className="text-gray-400 leading-relaxed">{resume.summary}</p>
       </section>
