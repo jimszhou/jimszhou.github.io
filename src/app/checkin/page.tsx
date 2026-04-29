@@ -1,32 +1,28 @@
-import { getAllContent, getSiteContent } from '@/lib/content'
+import { Box } from '@/components/tui/Box'
 import { NotesList } from '@/components/NotesList'
+import { getAllContent, getSiteContent } from '@/lib/content'
 
 const site = getSiteContent()
 
 export const metadata = {
-  title: `${site?.pages.notes.title ?? 'Notes'} — ${site?.hero.name ?? 'Jim Zhou'}`,
+  title: `notes — ${site?.hero.name ?? 'Jim Zhou'}`,
 }
 
 export default function NotesPage() {
   const notes = getAllContent('checkins')
-
-  const allTags = Array.from(
-    new Set(notes.flatMap((n) => n.tags ?? []))
-  ).sort()
+  const allTags = Array.from(new Set(notes.flatMap((n) => n.tags ?? []))).sort()
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold mb-2">{site?.pages.notes.title}</h1>
-        <p className="text-gray-400 mb-6">
-          {site?.pages.notes.subtitle}
-        </p>
-      </div>
-
+    <Box title="notes" hint="latest first" accent>
       <NotesList
-        notes={notes.map((n) => ({ title: n.title, slug: n.slug, tags: n.tags }))}
+        notes={notes.map((n) => ({
+          title: n.title,
+          slug: n.slug,
+          tags: n.tags,
+          excerpt: n.description,
+        }))}
         allTags={allTags}
       />
-    </div>
+    </Box>
   )
 }
