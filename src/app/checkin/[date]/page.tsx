@@ -1,7 +1,8 @@
-import { getAllContent, getContentBySlug } from '@/lib/content'
-import { renderMDX } from '@/lib/mdx'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Box } from '@/components/tui/Box'
+import { getAllContent, getContentBySlug } from '@/lib/content'
+import { renderMDX } from '@/lib/mdx'
 
 export async function generateStaticParams() {
   const items = getAllContent('checkins')
@@ -23,26 +24,19 @@ export default async function CheckinDetailPage({ params }: { params: Promise<{ 
   const content = await renderMDX(data.content)
 
   return (
-    <div className="max-w-3xl">
-      <Link href="/checkin" className="text-sm text-gray-500 hover:text-accent transition-colors mb-6 inline-block">
-        &larr; Back to Notes
-      </Link>
-
-      <header className="mb-8">
-        <h1 className="text-xl font-bold mb-2">{data.meta.title}</h1>
-        <span className="text-sm text-gray-500">{date}</span>
-        {data.meta.tags && (
-          <div className="flex gap-2 flex-wrap mt-3">
-            {data.meta.tags.map((tag) => (
-              <span key={tag} className="font-tag text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </header>
-
+    <Box title={data.meta.title} hint={date} accent>
+      <Link href="/checkin" className="tui-back">← back to notes</Link>
+      {data.meta.tags && (
+        <div className="tui-chip-row">
+          {data.meta.tags.map((tag) => (
+            <span className="tui-chip" key={tag}>
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="tui-divider">— — — — — — — — — — — — — — — — — —</div>
       <article className="prose">{content}</article>
-    </div>
+    </Box>
   )
 }

@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
+import { Sidebar } from '@/components/tui/Sidebar'
+import { KeyboardNav } from '@/components/tui/KeyboardNav'
 import { getSiteContent } from '@/lib/content'
 import VisitorTracker from '@/components/VisitorTracker'
 
@@ -12,13 +14,15 @@ export const metadata: Metadata = {
   description: site?.meta.siteDescription ?? '',
 }
 
+const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(!t){t='dark'}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}})();`
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" data-theme="dark">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -27,17 +31,22 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Bitcount+Prop+Single&family=Bitcount+Prop+Single+Ink&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&display=swap"
           rel="stylesheet"
         />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-screen flex flex-col">
+      <body>
         <VisitorTracker />
-        <Header />
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8">
-          {children}
-        </main>
-        <Footer />
+        <KeyboardNav items={site.nav} githubUrl={site.social.github} />
+        <div className="tui">
+          <Header />
+          <div className="tui-grid">
+            <Sidebar />
+            <main className="tui-pane tui-pane-main">{children}</main>
+          </div>
+          <Footer />
+        </div>
       </body>
     </html>
   )

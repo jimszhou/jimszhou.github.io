@@ -1,51 +1,57 @@
 import Link from 'next/link'
+import { Box } from '@/components/tui/Box'
 import { getAllContent, getSiteContent } from '@/lib/content'
 
 const site = getSiteContent()
 
 export const metadata = {
-  title: `${site?.pages.projects.title ?? 'Projects'} — ${site?.hero.name ?? 'Jim Zhou'}`,
+  title: `projects — ${site?.hero.name ?? 'Jim Zhou'}`,
 }
 
 export default function ProjectsPage() {
   const projects = getAllContent('projects')
 
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-2">{site?.pages.projects.title}</h1>
-      <p className="text-gray-400 mb-8">{site?.pages.projects.subtitle}</p>
-
-      <div className="grid sm:grid-cols-2 gap-4">
-        {projects.map((project) => (
-          <Link
-            key={project.slug}
-            href={`/projects/${project.slug}`}
-            className="group p-6 border border-gray-800 rounded-xl hover:border-accent/40 transition-colors"
-          >
-            <h2 className="font-semibold text-lg mb-2 group-hover:text-accent transition-colors">
-              {project.title}
-            </h2>
-            {project.description && (
-              <p className="text-gray-400 text-sm mb-3 line-clamp-2">{project.description}</p>
-            )}
-            <div className="flex items-center justify-between">
-              <div className="flex gap-2 flex-wrap">
-                {project.tags?.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="font-tag text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              {project.date && (
-                <span className="text-xs text-gray-500">{project.date}</span>
-              )}
-            </div>
-          </Link>
-        ))}
+    <Box title="projects" hint="click a row to open" accent>
+      <div className="tui-table">
+        <div className="tui-tr head">
+          <div>name</div>
+          <div>description</div>
+          <div>tags</div>
+          <div className="r">★</div>
+          <div>year</div>
+        </div>
+        {projects.map((p) => {
+          const year = p.date ? p.date.slice(0, 4) : '—'
+          return (
+            <Link key={p.slug} href={`/projects/${p.slug}`} className="tui-tr link">
+              <div className="tui-bold">{p.title}</div>
+              <div>{p.description}</div>
+              <div className="muted">{p.tags?.slice(0, 3).join(' · ')}</div>
+              <div className="r muted">—</div>
+              <div>{year}</div>
+            </Link>
+          )
+        })}
       </div>
-    </div>
+
+      {projects.length > 0 && (
+        <>
+          <div className="tui-divider">— — — — — — — — — — — — — — — — — —</div>
+          <div className="tui-cards">
+            {projects.slice(0, 2).map((p) => (
+              <Link key={p.slug} href={`/projects/${p.slug}`} className="tui-card" style={{ display: 'block' }}>
+                <div className="tui-card-head">
+                  <span className="tui-bold">{p.title}</span>
+                  <span className="muted small">{p.date?.slice(0, 7)}</span>
+                </div>
+                <div className="muted small">{p.tags?.slice(0, 4).join(' · ')}</div>
+                <div className="tui-card-body">{p.description}</div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+    </Box>
   )
 }
