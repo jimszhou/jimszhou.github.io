@@ -265,12 +265,10 @@ kbd {
   flex: 1;
   overflow: hidden;
   letter-spacing: 0;
-  /* Draw the rule as a 1px line so it always spans the full remaining width
-     (the old fixed-length dash string left a gap on wide desktop boxes). */
-  align-self: center;
-  height: 1px;
-  background: currentColor;
-  font-size: 0;
+  /* Fill is a long run of ─ glyphs, clipped by overflow:hidden. Using the same
+     glyph as the corners (not a CSS line) keeps the stroke on the exact same
+     baseline, so the rule aligns perfectly with ┌─ / ─┐. */
+  white-space: nowrap;
 }
 .tui-box-corner {
   color: var(--rule-2);
