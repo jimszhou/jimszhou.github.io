@@ -265,6 +265,12 @@ kbd {
   flex: 1;
   overflow: hidden;
   letter-spacing: 0;
+  /* Draw the rule as a 1px line so it always spans the full remaining width
+     (the old fixed-length dash string left a gap on wide desktop boxes). */
+  align-self: center;
+  height: 1px;
+  background: currentColor;
+  font-size: 0;
 }
 .tui-box-corner {
   color: var(--rule-2);
