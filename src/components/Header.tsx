@@ -27,8 +27,8 @@ export function Header() {
       <div className="tui-h-left">
         <CatLogo />
         <span className="tui-bold">{site.hero.handle ?? 'jim'}@dev</span>
-        <span className="muted">:</span>
-        <span>~/sites/jim-zhou</span>
+        <span className="muted tui-h-path">:</span>
+        <span className="tui-h-path">~/sites/jim-zhou</span>
       </div>
       <div className="tui-h-center">
         <span>{site.header?.centerText ?? `session · ${site.hero.location}`}</span>

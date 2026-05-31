@@ -17,9 +17,11 @@ export function Sidebar() {
 
   return (
     <aside className="tui-pane tui-pane-nav">
-      <Box title="nav" hint="[1-5]">
-        <Nav items={site.nav} />
-      </Box>
+      <div className="tui-sidebar-nav">
+        <Box title="nav" hint="[1-5]">
+          <Nav items={site.nav} />
+        </Box>
+      </div>
 
       <Box title="links">
         <LinksBox links={links} />
