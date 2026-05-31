@@ -1,8 +1,9 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { Sidebar } from '@/components/tui/Sidebar'
+import { MobileNav } from '@/components/tui/MobileNav'
 import { KeyboardNav } from '@/components/tui/KeyboardNav'
 import { getSiteContent } from '@/lib/content'
 import VisitorTracker from '@/components/VisitorTracker'
@@ -12,6 +13,12 @@ const site = getSiteContent()
 export const metadata: Metadata = {
   title: site?.meta.siteTitle ?? 'Jim Zhou',
   description: site?.meta.siteDescription ?? '',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(!t){t='dark'}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}})();`
@@ -41,6 +48,7 @@ export default function RootLayout({
         <KeyboardNav items={site.nav} githubUrl={site.social.github} />
         <div className="tui">
           <Header />
+          <MobileNav items={site.nav} />
           <div className="tui-grid">
             <Sidebar />
             <main className="tui-pane tui-pane-main">{children}</main>
